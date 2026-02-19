@@ -1,0 +1,29 @@
+model Faculty {
+  id           Int        @id @default(autoincrement())
+  name         String
+  universityId Int
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+  @@map("faculty")
+}
+
+model Association {
+  id           Int        @id @default(autoincrement())
+  name         String
+  universityId Int
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+  @@map("association")
+}
+
+model Cult {
+  id           Int        @id @default(autoincrement())
+  name         String
+  universityId Int
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+  @@map("cult")
+}

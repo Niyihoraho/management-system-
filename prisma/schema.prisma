@@ -1,0 +1,711 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../lib/generated/prisma"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  engineType    = "library"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Account {
+  id                       String   @id
+  userId                   String
+  type                     String
+  provider                 String
+  providerAccountId        String
+  refresh_token            String?
+  access_token             String?
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String?
+  session_state            String?
+  refresh_token_expires_in Int?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime
+  user                     User     @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+  @@index([userId], map: "Account_userId_idx")
+  @@map("account")
+}
+
+model ApprovalRequest {
+  id                                       Int                 @id @default(autoincrement())
+  type                                     ApprovalType
+  status                                   ApprovalStatus      @default(pending)
+  requestedById                            String
+  reviewedById                             String?
+  regionId                                 Int?
+  universityId                             Int?
+  smallGroupId                             Int?
+  details                                  String?
+  createdAt                                DateTime            @default(now())
+  reviewedAt                               DateTime?
+  graduateGroupId                          Int?
+  graduateSmallGroup                       graduatesmallgroup? @relation(fields: [graduateGroupId], references: [id])
+  region                                   Region?             @relation(fields: [regionId], references: [id])
+  user_approvalrequest_requestedByIdTouser User                @relation("approvalrequest_requestedByIdTouser", fields: [requestedById], references: [id])
+  user_approvalrequest_reviewedByIdTouser  User?               @relation("approvalrequest_reviewedByIdTouser", fields: [reviewedById], references: [id])
+  smallGroup                               SmallGroup?         @relation(fields: [smallGroupId], references: [id])
+  university                               University?         @relation(fields: [universityId], references: [id])
+
+  @@index([graduateGroupId], map: "ApprovalRequest_graduateGroupId_fkey")
+  @@index([regionId], map: "ApprovalRequest_regionId_fkey")
+  @@index([requestedById], map: "ApprovalRequest_requestedById_fkey")
+  @@index([reviewedById], map: "ApprovalRequest_reviewedById_fkey")
+  @@index([smallGroupId], map: "ApprovalRequest_smallGroupId_fkey")
+  @@index([universityId], map: "ApprovalRequest_universityId_fkey")
+  @@map("approvalrequest")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String
+  userId    String?
+  details   String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "AuditLog_userId_fkey")
+  @@map("auditlog")
+}
+
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+  @@map("authenticator")
+}
+
+model Cell {
+  id        BigInt    @id @default(autoincrement())
+  name      String
+  sector_id BigInt
+  sectors   Sector    @relation(fields: [sector_id], references: [id], onUpdate: Restrict)
+  villages  Village[]
+
+  @@index([sector_id], map: "cells_sector_id_foreign")
+  @@map("cells")
+}
+
+model District {
+  id          BigInt   @id @default(autoincrement())
+  name        String
+  province_id BigInt
+  provinces   Province @relation(fields: [province_id], references: [id], onUpdate: Restrict)
+  sectors     Sector[]
+
+  @@index([province_id], map: "districts_province_id_foreign")
+  @@map("districts")
+}
+
+model Document {
+  id                 Int                 @id @default(autoincrement())
+  title              String
+  description        String?
+  url                String
+  uploadedById       String
+  regionId           Int?
+  universityId       Int?
+  smallGroupId       Int?
+  createdAt          DateTime            @default(now())
+  graduateGroupId    Int?
+  graduateSmallGroup graduatesmallgroup? @relation(fields: [graduateGroupId], references: [id])
+  region             Region?             @relation(fields: [regionId], references: [id])
+  smallGroup         SmallGroup?         @relation(fields: [smallGroupId], references: [id])
+  university         University?         @relation(fields: [universityId], references: [id])
+  user               User                @relation(fields: [uploadedById], references: [id])
+
+  @@index([graduateGroupId], map: "Document_graduateGroupId_fkey")
+  @@index([regionId], map: "Document_regionId_fkey")
+  @@index([smallGroupId], map: "Document_smallGroupId_fkey")
+  @@index([universityId], map: "Document_universityId_fkey")
+  @@index([uploadedById], map: "Document_uploadedById_fkey")
+  @@map("document")
+}
+
+model Notification {
+  id        Int                @id @default(autoincrement())
+  userId    String?
+  type      NotificationType
+  subject   String?
+  message   String
+  status    NotificationStatus
+  sentAt    DateTime?
+  createdAt DateTime           @default(now())
+  user      User?              @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "Notification_userId_fkey")
+  @@map("notification")
+}
+
+model Province {
+  id                 BigInt               @id @default(autoincrement())
+  name               String
+  districts          District[]
+  graduate           graduate[]
+  graduatesmallgroup graduatesmallgroup[]
+
+  @@map("provinces")
+}
+
+model Region {
+  id                 Int                  @id @default(autoincrement())
+  name               String               @unique
+  approvalRequest    ApprovalRequest[]
+  document           Document[]
+  invitationlink     invitationlink[]
+  property           Property[]
+  report_submission  report_submission[]
+  smallGroup         SmallGroup[]
+  student            student[]
+  university         University[]
+  userRole           UserRole[]
+
+  @@map("region")
+}
+
+model Sector {
+  id          BigInt   @id @default(autoincrement())
+  name        String
+  district_id BigInt
+  cells       Cell[]
+  districts   District @relation(fields: [district_id], references: [id], onUpdate: Restrict)
+
+  @@index([district_id], map: "sectors_district_id_foreign")
+  @@map("sectors")
+}
+
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "Session_userId_idx")
+  @@map("session")
+}
+
+model SmallGroup {
+  id              Int               @id @default(autoincrement())
+  name            String
+  universityId    Int
+  regionId        Int
+  approvalRequest ApprovalRequest[]
+  document        Document[]
+  region          Region            @relation(fields: [regionId], references: [id])
+  university      University        @relation(fields: [universityId], references: [id])
+  student         student[]
+  userRole        UserRole[]
+
+  @@index([regionId], map: "SmallGroup_regionId_fkey")
+  @@index([universityId], map: "SmallGroup_universityId_fkey")
+  @@map("smallgroup")
+}
+
+model University {
+  id                Int               @id @default(autoincrement())
+  name              String
+  regionId          Int
+  studentPopulation Int?              @default(0)
+  approvalRequest   ApprovalRequest[]
+  association       association[]
+  cult              cult[]
+  document          Document[]
+  faculty           faculty[]
+  gbuData           GBUData[]
+  smallGroup        SmallGroup[]
+  student           student[]
+  region            Region            @relation(fields: [regionId], references: [id])
+  userRole          UserRole[]
+  invitationlink    invitationlink[]  @relation("InvitationUniversities")
+
+  @@index([regionId], map: "University_regionId_fkey")
+  @@map("university")
+}
+
+model User {
+  id                            String                @id
+  name                          String?
+  username                      String?               @unique
+  email                         String?               @unique
+  emailVerified                 DateTime?
+  image                         String?
+  password                      String?
+  contact                       String?
+  status                        UserStatus            @default(active)
+  createdAt                     DateTime              @default(now())
+  updatedAt                     DateTime
+  account                       Account[]
+  approvalRequest_requestedById ApprovalRequest[]     @relation("approvalrequest_requestedByIdTouser")
+  approvalRequest_reviewedById  ApprovalRequest[]     @relation("approvalrequest_reviewedByIdTouser")
+  auditLog                      AuditLog[]
+  authenticator                 Authenticator[]
+  document                      Document[]
+  invitationlink                invitationlink[]
+  notification                  Notification[]
+  registrationrequest           registrationrequest[]
+  report_submission             report_submission[]
+  session                       Session[]
+  userRole                      UserRole[]
+
+  @@map("user")
+}
+
+model UserRole {
+  id                 Int                 @id @default(autoincrement())
+  userId             String
+  regionId           Int?
+  universityId       Int?
+  smallGroupId       Int?
+  scope              RoleScope           @default(superadmin)
+  assignedAt         DateTime            @default(now())
+  graduateGroupId    Int?
+  graduateSmallGroup graduatesmallgroup? @relation(fields: [graduateGroupId], references: [id])
+  region             Region?             @relation(fields: [regionId], references: [id])
+  smallGroup         SmallGroup?         @relation(fields: [smallGroupId], references: [id])
+  university         University?         @relation(fields: [universityId], references: [id])
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([graduateGroupId])
+  @@index([regionId])
+  @@index([smallGroupId])
+  @@index([universityId])
+  @@index([userId])
+  @@map("userrole")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtoken")
+}
+
+model Village {
+  id      BigInt @id @default(autoincrement())
+  name    String
+  cell_id BigInt
+  cells   Cell   @relation(fields: [cell_id], references: [id], onUpdate: Restrict)
+
+  @@index([cell_id], map: "villages_cell_id_foreign")
+  @@map("villages")
+}
+
+model activity_category {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  priorityId         Int
+  strategic_priority strategic_priority  @relation(fields: [priorityId], references: [id])
+  activity_log       activity_log[]
+  activity_template  activity_template[]
+
+  @@index([priorityId])
+}
+
+model activity_log {
+  id                Int               @id @default(autoincrement())
+  reportId          Int
+  categoryId        Int
+  activityName      String
+  beneficiaries     String?
+  participantCount  Int               @default(0)
+  dateOccurred      DateTime?
+  facilitators      String?
+  followUpPractice  String?
+  impactSummary     String?
+  imageUrl          String?
+  activity_category activity_category @relation(fields: [categoryId], references: [id])
+  report_submission report_submission @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([reportId])
+}
+
+model activity_template {
+  id                Int               @id @default(autoincrement())
+  name              String
+  categoryId        Int
+  activity_category activity_category @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+}
+
+model association {
+  id           Int        @id @default(autoincrement())
+  name         String
+  universityId Int
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+}
+
+model cult {
+  id           Int        @id @default(autoincrement())
+  name         String
+  universityId Int
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+}
+
+model evaluation_question {
+  id                  Int                   @id @default(autoincrement())
+  statement           String
+  priorityId          Int
+  strategic_priority  strategic_priority    @relation(fields: [priorityId], references: [id])
+  evaluation_response evaluation_response[]
+
+  @@index([priorityId])
+}
+
+model evaluation_response {
+  id                  Int                 @id @default(autoincrement())
+  reportId            Int
+  questionId          Int
+  rating              MaturityLevel
+  evaluation_question evaluation_question @relation(fields: [questionId], references: [id])
+  report_submission   report_submission   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([reportId])
+}
+
+model faculty {
+  id           Int        @id @default(autoincrement())
+  name         String
+  universityId Int
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+}
+
+model financialsupport {
+  id               Int                 @id @default(autoincrement())
+  graduateId       Int                 @unique
+  supportStatus    SupportStatus
+  supportFrequency SupportFrequency?
+  supportAmount    String?
+  enableReminder   Boolean             @default(false)
+  status           SupportRecordStatus @default(active)
+  startDate        DateTime            @default(now())
+  endDate          DateTime?
+  lastReminderSent DateTime?
+  nextReminderDate DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime
+  notes            String?
+  graduate         graduate            @relation(fields: [graduateId], references: [id], onDelete: Cascade)
+
+  @@index([nextReminderDate])
+  @@index([status])
+  @@index([supportStatus])
+}
+
+model GBUData {
+  id                     Int        @id @default(autoincrement())
+  universityId           Int
+  activeMembers          Int        @default(0)
+  cells                  Int        @default(0)
+  discipleshipGroups     Int        @default(0)
+  studentsInDiscipleship Int        @default(0)
+  joinedThisYear         Int        @default(0)
+  savedStudents          Int        @default(0)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  year                   Int        @default(2026)
+  university             University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@unique([universityId, year])
+  @@map("gbu_data")
+}
+
+model graduate {
+  id                 Int                 @id @default(autoincrement())
+  fullName           String
+  phone              String?
+  email              String?             @unique
+  university         String?
+  course             String?
+  graduationYear     Int?
+  isDiaspora         Boolean             @default(false)
+  residenceProvince  String?
+  residenceDistrict  String?
+  residenceSector    String?
+  graduateGroupId    Int?
+  servingPillars     GraduatePillar[]
+  financialSupport   Boolean             @default(false)
+  status             GraduateStatus      @default(active)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime
+  profession         String?
+  supportStatus      SupportStatus?
+  supportFrequency   SupportFrequency?
+  supportAmount      String?
+  enableReminder     Boolean             @default(false)
+  provinceId         BigInt?
+  noCellAvailable    Boolean             @default(false)
+  financialsupport   financialsupport?
+  graduatesmallgroup graduatesmallgroup? @relation(fields: [graduateGroupId], references: [id])
+  provinces          Province?           @relation(fields: [provinceId], references: [id])
+
+  @@index([graduateGroupId])
+  @@index([provinceId])
+}
+
+model graduatesmallgroup {
+  id              Int               @id @default(autoincrement())
+  name            String
+  provinceId      BigInt?
+  approvalRequest ApprovalRequest[]
+  document        Document[]
+  graduate        graduate[]
+  provinces       Province?         @relation(fields: [provinceId], references: [id])
+  userRole        UserRole[]
+
+  @@index([provinceId])
+}
+
+model invitationlink {
+  id                  String                  @id
+  slug                String                  @unique
+  type                RegistrationRequestType
+  expiration          DateTime
+  description         String?
+  isActive            Boolean                 @default(true)
+  createdBy           String
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime
+  regionId            Int?
+  user                User                    @relation(fields: [createdBy], references: [id])
+  region              Region?                 @relation(fields: [regionId], references: [id])
+  registrationrequest registrationrequest[]
+  university          University[]            @relation("InvitationUniversities")
+}
+
+
+
+model Property {
+  id                       Int          @id @default(autoincrement())
+  kindOfProperty           PropertyKind
+  nameOfProperty           String
+  numberOfProperties       Int          @default(0)
+  propertiesFunctioning    Int          @default(0)
+  propertiesNotFunctioning Int          @default(0)
+  whereKept                String?
+  regionId                 Int
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  region                   Region       @relation(fields: [regionId], references: [id])
+
+  @@index([regionId])
+  @@map("property")
+}
+
+model registrationrequest {
+  id               Int                     @id @default(autoincrement())
+  type             RegistrationRequestType
+  status           RegistrationStatus      @default(PENDING)
+  payload          Json
+  fullName         String?
+  phone            String?
+  email            String?
+  reviewedById     String?
+  processedAt      DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime
+  invitationLinkId String?
+  invitationlink   invitationlink?         @relation(fields: [invitationLinkId], references: [id])
+  user             User?                   @relation(fields: [reviewedById], references: [id])
+
+  @@index([status])
+}
+
+model report_submission {
+  id                  Int                   @id @default(autoincrement())
+  userId              String
+  priorityId          Int
+  regionId            Int?
+  createdAt           DateTime              @default(now())
+  activity_log        activity_log[]
+  evaluation_response evaluation_response[]
+  strategic_priority  strategic_priority    @relation(fields: [priorityId], references: [id])
+  region              Region?               @relation(fields: [regionId], references: [id])
+  user                User                  @relation(fields: [userId], references: [id])
+
+  @@index([priorityId])
+  @@index([regionId])
+  @@index([userId])
+}
+
+model strategic_priority {
+  id                  Int                   @id @default(autoincrement())
+  name                String
+  description         String?
+  activity_category   activity_category[]
+  evaluation_question evaluation_question[]
+  report_submission   report_submission[]
+}
+
+model student {
+  id                   Int           @id @default(autoincrement())
+  fullName             String
+  phone                String?
+  email                String?       @unique
+  course               String?
+  yearOfStudy          Int?
+  placeOfBirthProvince String?
+  placeOfBirthDistrict String?
+  placeOfBirthSector   String?
+  status               StudentStatus @default(active)
+  universityId         Int
+  regionId             Int?
+  smallGroupId         Int?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime
+  region               Region?       @relation(fields: [regionId], references: [id])
+  smallgroup           SmallGroup?   @relation(fields: [smallGroupId], references: [id])
+  university           University    @relation(fields: [universityId], references: [id])
+
+
+  @@index([smallGroupId])
+  @@index([universityId])
+}
+
+model student_archive {
+  id         Int      @id @default(autoincrement())
+  studentId  Int
+  jsonData   Json
+  migratedAt DateTime @default(now())
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ApprovalType {
+  role_assignment
+  group_creation
+  other
+}
+
+enum GraduatePillar {
+  mobilization_integration
+  capacity_building
+  event_planning_management
+  graduate_cell_management
+  social_cohesion_promotion
+  prayer_promotion
+  database_management
+}
+
+enum GraduateStatus {
+  active
+  inactive
+  moved
+}
+
+enum MaturityLevel {
+  NA_OR_NOT_SURE
+  NOT_EVIDENT
+  BEGINNING
+  GROWING
+  MATURING
+}
+
+enum NotificationStatus {
+  sent
+  pending
+  failed
+}
+
+enum NotificationType {
+  email
+  sms
+  in_app
+}
+
+enum PropertyKind {
+  musical_instruments
+  books_for_reading
+  secretarial_documents
+  internal_regulations
+  training_equipments
+  beddings
+  kitchen_equipments
+  other_gbu_properties
+}
+
+enum RegistrationRequestType {
+  student
+  graduate
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RoleScope {
+  superadmin
+  national
+  region
+  university
+  smallgroup
+  graduatesmallgroup
+}
+
+enum StudentStatus {
+  active
+  inactive
+  mobilized
+  alumning
+}
+
+enum SupportFrequency {
+  monthly
+  half_year
+  full_year
+}
+
+enum SupportRecordStatus {
+  active
+  paused
+  completed
+  cancelled
+}
+
+enum SupportStatus {
+  want_to_support
+  already_supporting
+  later
+}
+
+enum UserStatus {
+  active
+  inactive
+  suspended
+}
+
+
