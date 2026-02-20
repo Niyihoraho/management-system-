@@ -31,6 +31,7 @@ type ActivityLog = {
     followUpPractice: string;
     impactSummary: string;
     imageUrl: string;
+    imageUrlSecondary: string;
     isCustom?: boolean;
 };
 
@@ -73,19 +74,20 @@ function ReportingWizardContent() {
                 if (found) {
                     setPillar(found);
                     // Initialize empty activity
-                    setActivities([{
-                        tempId: crypto.randomUUID(),
-                        categoryId: "",
-                        activityName: "",
-                        beneficiaries: "",
-                        participantCount: "",
-                        dateOccurred: new Date().toISOString().split('T')[0],
-                        facilitators: "",
-                        followUpPractice: "",
-                        impactSummary: "",
-                        imageUrl: "",
-                        isCustom: false
-                    }]);
+                     setActivities([{
+                         tempId: crypto.randomUUID(),
+                         categoryId: "",
+                         activityName: "",
+                         beneficiaries: "",
+                         participantCount: "",
+                         dateOccurred: new Date().toISOString().split('T')[0],
+                         facilitators: "",
+                         followUpPractice: "",
+                         impactSummary: "",
+                         imageUrl: "",
+                         imageUrlSecondary: "",
+                         isCustom: false
+                     }]);
                 } else {
                     toast({ title: "Pillar Not Found", variant: "destructive" });
                     router.push("/reports");
@@ -101,19 +103,20 @@ function ReportingWizardContent() {
     }, [pillarId]);
 
     const addActivityRow = () => {
-        setActivities([...activities, {
-            tempId: crypto.randomUUID(),
-            categoryId: "",
-            activityName: "",
-            beneficiaries: "",
-            participantCount: "",
-            dateOccurred: new Date().toISOString().split('T')[0],
-            facilitators: "",
-            followUpPractice: "",
-            impactSummary: "",
-            imageUrl: "",
-            isCustom: false
-        }]);
+         setActivities([...activities, {
+             tempId: crypto.randomUUID(),
+             categoryId: "",
+             activityName: "",
+             beneficiaries: "",
+             participantCount: "",
+             dateOccurred: new Date().toISOString().split('T')[0],
+             facilitators: "",
+             followUpPractice: "",
+             impactSummary: "",
+             imageUrl: "",
+             imageUrlSecondary: "",
+             isCustom: false
+         }]);
     };
 
     const removeActivityRow = (tempId: string) => {
@@ -135,8 +138,13 @@ function ReportingWizardContent() {
 
         // Basic Validation
         const invalid = activities.some(a => !a.categoryId || !a.activityName || !a.participantCount);
+        const missingImages = activities.some(a => !a.imageUrl || !a.imageUrlSecondary);
         if (invalid) {
             toast({ title: "Please fill required fields in all activity rows", variant: "destructive" });
+            return;
+        }
+        if (missingImages) {
+            toast({ title: "Please upload two evidence photos for every activity", variant: "destructive" });
             return;
         }
 

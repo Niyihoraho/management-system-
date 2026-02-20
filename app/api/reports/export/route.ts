@@ -54,6 +54,7 @@ const reportQuery = {
                 followUpPractice: true,
                 impactSummary: true,
                 imageUrl: true,
+                imageUrlSecondary: true,
                 activity_category: { select: { name: true } },
             },
         },
@@ -130,24 +131,40 @@ export async function POST(req: Request) {
 
     const generatedAt = new Date();
 
+    const coverLogos = await loadCoverLogos();
+
     const templateView = buildTemplateView({
         sessionUserName: session.user.name || session.user.email || "Authorized User",
         reports,
         priorities,
         generatedAt,
+        logos: coverLogos,
     });
 
     try {
         const template = await loadTemplate();
-        const html = Mustache.render(template, templateView);
+        const html = Mustache.render(template, templateView, {}, {
+            escape: (value) => value,
+        });
         const pdfBuffer = await renderPdf(html);
+        if (!pdfBuffer || pdfBuffer.length === 0) {
+            throw new Error("renderPdf returned an empty buffer");
+        }
+        const pdfSlice = pdfBuffer.subarray(0, 8).toString("utf-8");
+        console.log(`[reports/export] generated pdf bytes: ${pdfBuffer.length}, signature: ${pdfSlice}`);
 
         const filename = `strategic-report-${format(generatedAt, "yyyyMMdd-HHmmss")}.pdf`;
-        return new NextResponse(pdfBuffer as any, {
+        const pdfBytes = new Uint8Array(pdfBuffer.length);
+        pdfBytes.set(pdfBuffer);
+        const pdfArrayBuffer = pdfBytes.buffer;
+
+        return new Response(pdfArrayBuffer, {
+            status: 200,
             headers: {
                 "Content-Type": "application/pdf",
                 "Content-Disposition": `attachment; filename="${filename}"`,
                 "Cache-Control": "no-store",
+                "Content-Length": pdfBuffer.length.toString(),
             },
         });
     } catch (error) {
@@ -166,11 +183,13 @@ function buildTemplateView({
     reports,
     priorities,
     generatedAt,
+    logos,
 }: {
     sessionUserName: string;
     reports: ReportWithRelations[];
     priorities: PriorityWithRelations[];
     generatedAt: Date;
+    logos: { primaryLogo: string | null; secondaryLogo: string | null };
 }) {
     const priorityMeta = new Map(priorities.map((priority) => [priority.id, priority]));
 
@@ -203,7 +222,7 @@ function buildTemplateView({
                 });
             }
 
-            const photos = buildPhotoSection(activity.imageUrl, activity.activityName);
+            const photos = buildPhotoSection(activity.imageUrl, activity.imageUrlSecondary, activity.activityName);
 
             group.sections.get(catKey)!.activities.push({
                 name: activity.activityName || "Untitled Activity",
@@ -267,13 +286,13 @@ function buildTemplateView({
         const evaluationQuestions = meta?.evaluation_question ?? [];
         const evaluation = totalEvaluationResponses > 0 && evaluationQuestions.length
             ? {
-                  title: "Pillar Evaluation",
-                  description: `Summary of evaluation submissions for ${meta?.name ?? "this pillar"}.`,
-                  legend: LEGEND,
-                  questions: evaluationQuestions
-                      .map((question) => summarizeQuestion(group.evaluations.get(question.id) || [], question.statement))
-                      .filter((question) => question.hasData),
-              }
+                title: "Pillar Evaluation",
+                description: `Summary of evaluation submissions for ${meta?.name ?? "this pillar"}.`,
+                legend: LEGEND,
+                questions: evaluationQuestions
+                    .map((question) => summarizeQuestion(group.evaluations.get(question.id) || [], question.statement))
+                    .filter((question) => question.hasData),
+            }
             : null;
 
         const filteredQuestions = evaluation?.questions ?? [];
@@ -286,9 +305,9 @@ function buildTemplateView({
 
         const finalEvaluation = hasEvaluationData
             ? {
-                  ...evaluation!,
-                  questions: filteredQuestions.map(({ hasData, ...rest }) => rest),
-              }
+                ...evaluation!,
+                questions: filteredQuestions.map(({ hasData, ...rest }) => rest),
+            }
             : null;
 
         return {
@@ -306,19 +325,24 @@ function buildTemplateView({
         };
     }).filter(Boolean) as Array<{ id: number; number: string; tagColor: string; tagLabel: string; title: string; subtitle: string; vision: string; sections: Section[]; evaluation: any; animationDelay: string; isLast: boolean }>;
 
-    const sectionIntroTitle = pillars.length === 1 ? pillars[0]?.title ?? "Strategic Pillar" : "Selected Pillars Overview";
+    const coverStatement = pillars[0]?.vision
+        || pillars[0]?.subtitle
+        || "We want to see strategic initiatives thriving across every pillar.";
 
     return {
         organizationBadge: "GBUR Student Ministry",
         reportTitle: "Annual Report",
         reportTheme: "Thriving Together",
         reportSubtitle: `Strategic Reporting Export — ${format(generatedAt, "MMMM d, yyyy")}`,
-        sectionIntroLabel: "Strategic Priorities",
-        sectionIntroTitle,
+        coverStatement,
         meta: [
             { label: "Prepared For", value: sessionUserName },
-            { label: "Total Submissions", value: reports.length.toString() },
-            { label: "Pillars Included", value: pillars.length.toString() },
+            logos.primaryLogo
+                ? { logo: logos.primaryLogo, logoAlt: "GBUR Student Ministry" }
+                : { label: "Total Submissions", value: reports.length.toString() },
+            logos.secondaryLogo
+                ? { logo: logos.secondaryLogo, logoAlt: "IFES" }
+                : { label: "Pillars Included", value: pillars.length.toString() },
             { label: "Generated", value: format(generatedAt, "PPP") },
         ],
         pillars,
@@ -339,18 +363,16 @@ function buildPlaceholderActivity(message: string) {
     };
 }
 
-function buildPhotoSection(imageUrl?: string | null, caption?: string | null) {
-    if (!imageUrl) return undefined;
-    const urls = imageUrl
-        .split(",")
-        .map((url) => url.trim())
-        .filter(Boolean);
+function buildPhotoSection(primary?: string | null, secondary?: string | null, caption?: string | null) {
+    const urls = [primary, secondary]
+        .map((url) => (url ?? "").trim())
+        .filter((url) => url.length > 0);
     if (urls.length === 0) return undefined;
     return {
         countLabel: urls.length === 1 ? "1 photo" : `${urls.length} photos`,
         items: urls.map((src, index) => ({
             src,
-            caption: caption || `Evidence ${index + 1}`,
+            caption: caption ? `${caption} · View ${index + 1}` : `Evidence ${index + 1}`,
         })),
     };
 }
@@ -415,7 +437,7 @@ async function renderPdf(html: string) {
 
     try {
         const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "networkidle0" });
+        await page.setContent(html, { waitUntil: "networkidle2" });
         await page.emulateMediaType("screen");
         const pdf = await page.pdf({
             format: "A4",
@@ -425,6 +447,30 @@ async function renderPdf(html: string) {
         return Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
     } finally {
         await browser.close();
+    }
+}
+
+async function loadCoverLogos() {
+    const [primaryLogo, secondaryLogo] = await Promise.all([
+        loadAssetDataUri("logo-r.png"),
+        loadAssetDataUri("ifeslogo.png"),
+    ]);
+    return {
+        primaryLogo,
+        secondaryLogo,
+    };
+}
+
+async function loadAssetDataUri(fileName: string) {
+    try {
+        const filePath = path.join(process.cwd(), "public", fileName);
+        const buffer = await readFile(filePath);
+        const ext = path.extname(fileName).replace(".", "").toLowerCase();
+        const mime = ext === "svg" ? "image/svg+xml" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+        return `data:${mime};base64,${buffer.toString("base64")}`;
+    } catch (error) {
+        console.warn(`[reports/export] Unable to load asset ${fileName}`, error);
+        return null;
     }
 }
 

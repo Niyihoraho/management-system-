@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(
     req: Request,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     const session = await auth();
     if (!session?.user) {
@@ -12,7 +12,8 @@ export async function POST(
     }
 
     try {
-        const reportId = parseInt(params.id);
+        const { id } = await context.params;
+        const reportId = parseInt(id);
         const body = await req.json();
         const { evaluations } = body;
 

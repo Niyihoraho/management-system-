@@ -44,6 +44,7 @@ type ActivityLog = {
     followUpPractice: string;
     impactSummary: string;
     imageUrl: string;
+    imageUrlSecondary: string;
     isCustom?: boolean;
 };
 
@@ -286,12 +287,21 @@ export function ActivityRow({ index, activity, config, onUpdate, onRemove, showR
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="block mb-2">Activity Evidence</Label>
-                            <ImageUpload
-                                onUpload={(url) => onUpdate({ imageUrl: url })}
-                                defaultImage={activity.imageUrl}
-                            />
+                        <div className="space-y-3">
+                            <Label className="block">Activity Evidence <span className="text-red-500">(2 required)</span></Label>
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <ImageUpload
+                                    label="Primary Photo"
+                                    onUpload={(url) => onUpdate({ imageUrl: url })}
+                                    defaultImage={activity.imageUrl}
+                                />
+                                <ImageUpload
+                                    label="Secondary Photo"
+                                    onUpload={(url) => onUpdate({ imageUrlSecondary: url })}
+                                    defaultImage={activity.imageUrlSecondary}
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">Use two clear shots capturing different angles or proofs of the activity.</p>
                         </div>
                     </div>
                 </div>

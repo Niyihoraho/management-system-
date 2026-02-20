@@ -52,6 +52,7 @@ interface ActivityData {
     followUpPractice: string;
     impactSummary: string;
     imageUrl: string;
+    imageUrlSecondary: string;
     user: { name: string | null; email: string | null };
     reportCreatedAt: string;
 }
@@ -73,6 +74,7 @@ const mapActivityToForm = (activity: ActivityData | null) => ({
     impactSummary: activity?.impactSummary || "",
     followUpPractice: activity?.followUpPractice || "",
     imageUrl: activity?.imageUrl || "",
+    imageUrlSecondary: activity?.imageUrlSecondary || "",
 });
 
 export function ViewActivityModal({ isOpen, onClose, activity, onUpdated, onDeleted }: ViewActivityModalProps) {
@@ -110,6 +112,7 @@ export function ViewActivityModal({ isOpen, onClose, activity, onUpdated, onDele
                 impactSummary: formState.impactSummary,
                 followUpPractice: formState.followUpPractice,
                 imageUrl: formState.imageUrl,
+                imageUrlSecondary: formState.imageUrlSecondary,
             };
 
             const res = await fetch(`/api/activities/${localActivity.id}`, {
@@ -376,27 +379,47 @@ export function ViewActivityModal({ isOpen, onClose, activity, onUpdated, onDele
                                     <Camera className="h-4 w-4" /> Activity Evidence
                                 </div>
                                 {isEditing && (
-                                    <Input
-                                        value={formState.imageUrl}
-                                        onChange={(e) => handleFieldChange("imageUrl", e.target.value)}
-                                        placeholder="Image URL"
-                                        className="pl-6"
-                                    />
-                                )}
-                                {localActivity.imageUrl?.trim() ? (
-                                    <div className="pl-6">
-                                        <div className="relative w-full aspect-video rounded-md overflow-hidden bg-muted border">
-                                            <Image
-                                                src={localActivity.imageUrl}
-                                                alt="Activity Evidence"
-                                                fill
-                                                className="object-contain"
-                                            />
-                                        </div>
+                                    <div className="pl-6 grid sm:grid-cols-2 gap-3">
+                                        <Input
+                                            value={formState.imageUrl}
+                                            onChange={(e) => handleFieldChange("imageUrl", e.target.value)}
+                                            placeholder="Primary image URL"
+                                        />
+                                        <Input
+                                            value={formState.imageUrlSecondary}
+                                            onChange={(e) => handleFieldChange("imageUrlSecondary", e.target.value)}
+                                            placeholder="Secondary image URL"
+                                        />
                                     </div>
-                                ) : !isEditing ? (
-                                    <p className="pl-6 text-sm text-muted-foreground">No evidence uploaded.</p>
-                                ) : null}
+                                )}
+                                {!isEditing && (
+                                    <div className="pl-6 grid sm:grid-cols-2 gap-4">
+                                        {localActivity.imageUrl?.trim() ? (
+                                            <div className="relative w-full aspect-video rounded-md overflow-hidden bg-muted border">
+                                                <Image
+                                                    src={localActivity.imageUrl}
+                                                    alt="Primary activity evidence"
+                                                    fill
+                                                    className="object-contain"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">Primary image missing.</p>
+                                        )}
+                                        {localActivity.imageUrlSecondary?.trim() ? (
+                                            <div className="relative w-full aspect-video rounded-md overflow-hidden bg-muted border">
+                                                <Image
+                                                    src={localActivity.imageUrlSecondary}
+                                                    alt="Secondary activity evidence"
+                                                    fill
+                                                    className="object-contain"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">Secondary image missing.</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
