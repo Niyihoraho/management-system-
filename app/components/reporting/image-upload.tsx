@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ImagePlus, X, Loader2 } from "lucide-react";
@@ -8,12 +8,17 @@ import { ImagePlus, X, Loader2 } from "lucide-react";
 interface CloudinaryUploadProps {
     onUpload: (url: string) => void;
     defaultImage?: string;
+    label?: string;
 }
 
-export function ImageUpload({ onUpload, defaultImage }: CloudinaryUploadProps) {
+export function ImageUpload({ onUpload, defaultImage, label }: CloudinaryUploadProps) {
     const [uploading, setUploading] = useState(false);
     const [preview, setPreview] = useState<string | null>(defaultImage || null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setPreview(defaultImage || null);
+    }, [defaultImage]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -63,7 +68,7 @@ export function ImageUpload({ onUpload, defaultImage }: CloudinaryUploadProps) {
 
     return (
         <div className="flex flex-col gap-2">
-            <Label>Image</Label>
+            <Label>{label ?? "Image"}</Label>
 
             {!preview ? (
                 <div

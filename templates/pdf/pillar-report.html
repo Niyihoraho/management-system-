@@ -18,81 +18,114 @@
     body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); }
 
     .report-header {
-      background: var(--ink);
+      background: radial-gradient(circle at 20% 20%, rgba(255, 222, 173, 0.08), transparent 55%), #10122c;
       color: var(--cream);
-      padding: 60px 80px 50px;
+      padding: 72px 80px 56px;
       position: relative;
       overflow: hidden;
+      border-bottom-left-radius: 18px;
+      border-bottom-right-radius: 18px;
+      box-shadow: 0 25px 60px rgba(12, 13, 32, 0.35);
     }
-    .report-header::before {
+    .report-header::before,
+    .report-header::after {
       content: '';
       position: absolute;
-      top: -60px;
-      right: -60px;
-      width: 300px;
-      height: 300px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 50%;
-      border: 2px solid rgba(201, 168, 76, 0.15);
+    }
+    .report-header::before {
+      width: 420px;
+      height: 420px;
+      right: -120px;
+      top: -120px;
+    }
+    .report-header::after {
+      width: 260px;
+      height: 260px;
+      right: 80px;
+      bottom: -160px;
+    }
+    .header-content {
+      position: relative;
+      z-index: 2;
+      max-width: 920px;
     }
     .org-badge {
-      display: inline-block;
-      border: 1px solid var(--gold);
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.3);
       color: var(--gold);
       font-size: 11px;
       letter-spacing: 3px;
       text-transform: uppercase;
-      padding: 6px 16px;
-      margin-bottom: 28px;
+      padding: 7px 20px;
+      margin-bottom: 32px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.25);
     }
     .report-header h1 {
       font-family: 'Playfair Display', serif;
-      font-size: clamp(36px, 5vw, 60px);
+      font-size: clamp(42px, 6vw, 68px);
       font-weight: 900;
       line-height: 1.05;
       margin-bottom: 12px;
     }
-    .report-header h1 span { color: var(--gold); }
+    .report-header h1 span { color: var(--gold); display: block; }
     .report-subtitle {
-      color: rgba(250, 247, 240, 0.55);
-      font-size: 15px;
+      color: rgba(250, 247, 240, 0.7);
+      font-size: 16px;
+      letter-spacing: 1px;
       margin-bottom: 40px;
     }
     .meta-row {
-      display: flex;
-      gap: 40px;
-      flex-wrap: wrap;
-      border-top: 1px solid rgba(201, 168, 76, 0.2);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 24px;
+      border-top: 1px solid rgba(201, 168, 76, 0.25);
       padding-top: 28px;
+    }
+    .meta-item {
+      background: rgba(0, 0, 0, 0.25);
+      padding: 14px 18px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      min-height: 90px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .meta-item.logo-card {
+      align-items: center;
+      justify-content: center;
+    }
+    .meta-logo {
+      max-height: 46px;
+      filter: brightness(0) invert(1);
+      opacity: 0.9;
     }
     .meta-item label {
       display: block;
       font-size: 10px;
       letter-spacing: 2px;
       text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 4px;
+      color: rgba(201, 168, 76, 0.85);
+      margin-bottom: 8px;
     }
-    .meta-item span { font-size: 14px; color: var(--cream); }
+    .meta-item span { font-size: 15px; color: var(--cream); font-weight: 500; }
+    .cover-statement {
+      margin-top: 36px;
+      background: rgba(6, 7, 18, 0.9);
+      border-left: 5px solid var(--gold);
+      padding: 22px 28px;
+      font-size: 15px;
+      color: rgba(250, 247, 240, 0.9);
+      font-style: italic;
+      line-height: 1.7;
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
+    }
 
     .main-content { max-width: 1160px; margin: 0 auto; padding: 60px 40px; }
-    .section-intro {
-      text-align: center;
-      margin-bottom: 64px;
-      padding-bottom: 40px;
-      border-bottom: 1px solid var(--border);
-    }
-    .section-intro p {
-      font-size: 13px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 12px;
-    }
-    .section-intro h2 {
-      font-family: 'Playfair Display', serif;
-      font-size: 38px;
-      font-weight: 700;
-    }
 
     .pillar { margin-bottom: 80px; }
     .pillar-header {
@@ -138,6 +171,8 @@
       line-height: 1.7;
       margin-bottom: 36px;
       font-style: italic;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .activities-section { margin-bottom: 40px; }
@@ -233,8 +268,8 @@
     .photo-grid { display: flex; gap: 20px; flex-wrap: wrap; }
     .p-slot-wrap { display: flex; flex-direction: column; gap: 0; break-inside: avoid; page-break-inside: avoid; }
     .p-slot {
-      width: 220px;
-      height: 150px;
+      width: 280px;
+      height: 185px;
       position: relative;
       border-radius: 8px;
       overflow: hidden;
@@ -248,9 +283,13 @@
       height: 100%;
       object-fit: cover;
       display: block;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      filter: saturate(1.05) contrast(1.05);
+      transform: translateZ(0);
     }
     .p-caption {
-      width: 220px;
+      width: 280px;
       font-size: 11px;
       border: none;
       border-top: 1px solid var(--border);
@@ -347,6 +386,11 @@
       padding: 32px;
       font-size: 12px;
       letter-spacing: 1px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      page-break-after: avoid;
+      page-break-before: avoid;
+      border-top: 4px solid var(--gold);
     }
     footer span { color: var(--gold); }
 
@@ -365,36 +409,47 @@
       .ad-cell { border-right: none; border-bottom: 1px solid var(--border); }
     }
     @media (max-width: 600px) {
-      .report-header { padding: 40px 20px 36px; }
+      .report-header { padding: 48px 24px 40px; }
+      .header-content { max-width: 100%; }
       .main-content { padding: 40px 16px; }
       .activity-data { grid-template-columns: 1fr; }
       .pillar-header { flex-direction: column; gap: 8px; }
       .pillar-number { font-size: 48px; }
-      .meta-row { gap: 20px; }
+      .meta-row { grid-template-columns: 1fr; gap: 16px; }
+      .cover-statement { font-size: 14px; padding: 18px 20px; }
+      .p-slot,
+      .p-caption { width: 100%; }
+      .p-slot { height: auto; aspect-ratio: 4 / 3; }
       .eval-row { grid-template-columns: 1fr; gap: 8px; }
     }
   </style>
 </head>
 <body>
   <header class="report-header">
-    <div class="org-badge">{{organizationBadge}}</div>
-    <h1>{{reportTitle}}<br /><span>{{reportTheme}}</span></h1>
-    <p class="report-subtitle">{{reportSubtitle}}</p>
-    <div class="meta-row">
-      {{#meta}}
-        <div class="meta-item">
-          <label>{{label}}</label>
-          <span>{{value}}</span>
-        </div>
-      {{/meta}}
+    <div class="header-content">
+      <div class="org-badge">{{organizationBadge}}</div>
+      <h1>{{reportTitle}}<br /><span>{{reportTheme}}</span></h1>
+      <p class="report-subtitle">{{reportSubtitle}}</p>
+      <div class="meta-row">
+        {{#meta}}
+          <div class="meta-item {{#logo}}logo-card{{/logo}}">
+            {{#logo}}
+              <img src="{{logo}}" alt="{{logoAlt}}" class="meta-logo" />
+            {{/logo}}
+            {{^logo}}
+              <label>{{label}}</label>
+              <span>{{value}}</span>
+            {{/logo}}
+          </div>
+        {{/meta}}
+      </div>
+      {{#coverStatement}}
+        <div class="cover-statement">{{coverStatement}}</div>
+      {{/coverStatement}}
     </div>
   </header>
 
   <div class="main-content">
-    <div class="section-intro">
-      <p>{{sectionIntroLabel}}</p>
-      <h2>{{sectionIntroTitle}}</h2>
-    </div>
 
     {{#pillars}}
       <div class="pillar" data-pillar-id="{{id}}" style="animation-delay: {{animationDelay}}s">

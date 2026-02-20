@@ -55,6 +55,8 @@ type ReportSubmission = {
         activityName: string;
         participantCount: number;
         dateOccurred: string | null;
+        imageUrl: string;
+        imageUrlSecondary: string;
     }[];
     evaluations: { id: number; questionId: number; rating: string }[];
 };
@@ -221,20 +223,25 @@ export default function AdminReportsPage() {
     const handleExportSelected = async () => {
         if (submittedPillars.length === 0 || exporting) return;
 
-        const exportingAll = selectAllPillars || selectedExportPillars.length === submittedPillars.length;
+        const selectedIds = selectAllPillars
+            ? Array.from(new Set(submittedPillars.map((pillar) => pillar.id)))
+            : Array.from(new Set(selectedExportPillars));
 
-        if (!exportingAll && selectedExportPillars.length === 0) {
+        const exportingAll = selectAllPillars || selectedIds.length === submittedPillars.length;
+
+        if (!exportingAll && selectedIds.length === 0) {
             toast({ title: "Select at least one pillar", description: "Choose which submitted pillars to export." });
             return;
         }
 
         setExporting(true);
         try {
-            const payload = exportingAll ? {} : { pillarIds: selectedExportPillars };
+            const payload = { pillarIds: selectedIds };
             const res = await fetch("/api/reports/export", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
+                cache: "no-store",
             });
 
             if (!res.ok) {
@@ -243,8 +250,11 @@ export default function AdminReportsPage() {
             }
 
             const blob = await res.blob();
+            if (!blob || blob.size === 0) {
+                throw new Error("Received an empty PDF response");
+            }
             const url = URL.createObjectURL(blob);
-            const filenameBase = exportingAll ? "all" : selectedExportPillars.join("-");
+            const filenameBase = exportingAll ? "all" : selectedIds.join("-");
             const filename = `gbu-strategic-report-${filenameBase}-${new Date().toISOString().split("T")[0]}.pdf`;
 
             const link = document.createElement("a");
@@ -252,13 +262,15 @@ export default function AdminReportsPage() {
             link.download = filename;
             document.body.appendChild(link);
             link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+            window.setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 5000);
 
             const selectionLabel = exportingAll
                 ? "All submitted priorities"
                 : submittedPillars
-                    .filter((pillar) => selectedExportPillars.includes(pillar.id))
+                    .filter((pillar) => selectedIds.includes(pillar.id))
                     .map((pillar) => pillar.name)
                     .join(", ");
 
@@ -424,26 +436,22 @@ export default function AdminReportsPage() {
                                                             </TableCell>
                                                             <TableCell className="text-right">
                                                                 <div className="flex justify-end gap-2">
-                                                                    {pillar.evaluated ? (
-                                                                        <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200">
-                                                                            Evaluated
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            className="h-8 gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 bg-white"
-                                                                            disabled={!canEvaluate}
-                                                                            onClick={() => {
-                                                                                if (!canEvaluate || !repForEval) return;
-                                                                                setSelectedReport(repForEval);
-                                                                                setIsModalOpen(true);
-                                                                            }}
-                                                                        >
-                                                                            <Star className="h-3.5 w-3.5" />
-                                                                            Evaluate Pillar
-                                                                        </Button>
-                                                                    )}
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant={pillar.evaluated ? "secondary" : "outline"}
+                                                                        className={pillar.evaluated
+                                                                            ? "h-8 gap-1 bg-green-100 text-green-800 hover:bg-green-200"
+                                                                            : "h-8 gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 bg-white"}
+                                                                        disabled={!canEvaluate}
+                                                                        onClick={() => {
+                                                                            if (!canEvaluate || !repForEval) return;
+                                                                            setSelectedReport(repForEval);
+                                                                            setIsModalOpen(true);
+                                                                        }}
+                                                                    >
+                                                                        <Star className="h-3.5 w-3.5" />
+                                                                        {pillar.evaluated ? "Re-evaluate" : "Evaluate Pillar"}
+                                                                    </Button>
                                                                 </div>
                                                             </TableCell>
                                                         </TableRow>

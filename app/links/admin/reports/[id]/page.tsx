@@ -39,7 +39,8 @@ type ReportDetail = {
         facilitators: string;
         followUpPractice: string;
         impactSummary: string;
-        imageUrl: string;
+        imageUrl: string | null;
+        imageUrlSecondary: string | null;
     }[];
     evaluations: {
         id: number;
@@ -170,9 +171,14 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
                                                 <p className="text-xs font-semibold text-muted-foreground uppercase">Follow Up</p>
                                                 <p className="text-sm">{act.followUpPractice || "None"}</p>
                                             </div>
-                                            {act.imageUrl && (
-                                                <div className="mt-2">
-                                                    <img src={act.imageUrl} alt="Activity" className="rounded-md max-h-40 object-cover border" />
+                                            {(act.imageUrl || act.imageUrlSecondary) && (
+                                                <div className="mt-2 grid sm:grid-cols-2 gap-3">
+                                                    {act.imageUrl && (
+                                                        <img src={act.imageUrl} alt="Activity evidence 1" className="rounded-md max-h-40 object-cover border" />
+                                                    )}
+                                                    {act.imageUrlSecondary && (
+                                                        <img src={act.imageUrlSecondary} alt="Activity evidence 2" className="rounded-md max-h-40 object-cover border" />
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

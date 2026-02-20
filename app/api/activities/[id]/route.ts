@@ -25,6 +25,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (typeof body.followUpPractice === "string" || body.followUpPractice === null) data.followUpPractice = body.followUpPractice;
     if (typeof body.impactSummary === "string" || body.impactSummary === null) data.impactSummary = body.impactSummary;
     if (typeof body.imageUrl === "string" || body.imageUrl === null) data.imageUrl = body.imageUrl;
+    if (typeof body.imageUrlSecondary === "string" || body.imageUrlSecondary === null) {
+        data.imageUrlSecondary = body.imageUrlSecondary;
+    }
 
     if (typeof body.participantCount !== "undefined") {
         const count = Number(body.participantCount);
@@ -73,6 +76,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             followUpPractice: updated.followUpPractice ?? "",
             impactSummary: updated.impactSummary ?? "",
             imageUrl: updated.imageUrl ?? "",
+            imageUrlSecondary: updated.imageUrlSecondary ?? "",
             user: {
                 name: updated.report_submission.user?.name ?? null,
                 email: updated.report_submission.user?.email ?? null,

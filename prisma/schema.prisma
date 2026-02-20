@@ -333,6 +333,7 @@ model activity_log {
   followUpPractice  String?
   impactSummary     String?
   imageUrl          String?
+  imageUrlSecondary String?
   activity_category activity_category @relation(fields: [categoryId], references: [id])
   report_submission report_submission @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
@@ -707,5 +708,4 @@ enum UserStatus {
   inactive
   suspended
 }
-
 

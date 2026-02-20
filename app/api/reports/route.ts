@@ -15,6 +15,15 @@ export async function POST(req: Request) {
 
         const userId = session.user.id;
 
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return NextResponse.json({ error: "At least one activity is required" }, { status: 400 });
+        }
+
+        const missingEvidence = activities.some((act: any) => !act.imageUrl || !act.imageUrlSecondary);
+        if (missingEvidence) {
+            return NextResponse.json({ error: "Each activity must include two evidence photos." }, { status: 400 });
+        }
+
         const report = await prisma.report_submission.create({
             data: {
                 userId,
@@ -31,6 +40,7 @@ export async function POST(req: Request) {
                         followUpPractice: act.followUpPractice,
                         impactSummary: act.impactSummary,
                         imageUrl: act.imageUrl,
+                        imageUrlSecondary: act.imageUrlSecondary,
                     })),
                 },
                 evaluation_response: {
@@ -89,6 +99,7 @@ export async function GET(req: Request) {
                         followUpPractice: true,
                         impactSummary: true,
                         imageUrl: true,
+                        imageUrlSecondary: true,
                         activity_category: {
                             select: { name: true }
                         }
@@ -133,6 +144,7 @@ export async function GET(req: Request) {
                 followUpPractice: activity.followUpPractice ?? "",
                 impactSummary: activity.impactSummary ?? "",
                 imageUrl: activity.imageUrl ?? "",
+                imageUrlSecondary: activity.imageUrlSecondary ?? "",
             })),
             evaluations: report.evaluation_response.map((evaluation) => ({
                 id: evaluation.id,
