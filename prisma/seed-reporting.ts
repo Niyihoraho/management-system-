@@ -6,15 +6,15 @@ async function main() {
     console.log('Seeding reporting configuration...');
 
     // Create a strategic priority with categories and questions
-    const priority = await prisma.strategicPriority.create({
+    const priority = await prisma.strategic_priority.create({
         data: {
             name: 'Empowering students to witness to the good news of Jesus Christ',
             description: 'Focus on evangelism and discipleship activities',
-            categories: {
+            activity_category: {
                 create: [
                     {
                         name: 'Activities for Empowering students to witness to the good news of Jesus Christ',
-                        templates: {
+                        activity_template: {
                             create: [
                                 { name: 'Training on Friendship evangelism' },
                                 { name: 'Expository preaching' },
@@ -23,7 +23,7 @@ async function main() {
                     },
                 ],
             },
-            questions: {
+            evaluation_question: {
                 create: [
                     {
                         statement: 'How well are students equipped to share their faith?',

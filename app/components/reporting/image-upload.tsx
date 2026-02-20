@@ -63,7 +63,7 @@ export function ImageUpload({ onUpload, defaultImage }: CloudinaryUploadProps) {
 
     return (
         <div className="flex flex-col gap-2">
-            <Label>Activity Evidence (Image)</Label>
+            <Label>Image</Label>
 
             {!preview ? (
                 <div
