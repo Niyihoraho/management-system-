@@ -164,16 +164,32 @@ export default function ReportingConfigPage() {
     const { toast } = useToast();
     const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
+    const fetchPriorities = async () => {
+        const res = await fetch("/api/reporting/config");
+        const data = await res.json();
+
+        if (!res.ok) {
+            const message = typeof data?.error === "string" ? data.error : "Failed to load reporting configuration.";
+            throw new Error(message);
+        }
+
+        if (!Array.isArray(data)) {
+            throw new Error("Unexpected response format.");
+        }
+
+        return data as StrategicPriority[];
+    };
+
     const fetchConfig = async () => {
         try {
             setLoading(true);
             setError(null);
-            const res = await fetch("/api/reporting/config");
-            const data = await res.json();
+            const data = await fetchPriorities();
             setPriorities(data);
         } catch (error) {
             console.error(error);
-            setError("Failed to load reporting configuration. Please try again.");
+            setPriorities([]);
+            setError(error instanceof Error ? error.message : "Failed to load reporting configuration. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -203,8 +219,7 @@ export default function ReportingConfigPage() {
             if (res.ok) {
                 toast({ title: "Priority Created" });
                 // Refresh without full page loader
-                const refreshRes = await fetch("/api/reporting/config");
-                const data = await refreshRes.json();
+                const data = await fetchPriorities();
                 setPriorities(data);
 
                 (e.target as HTMLFormElement).reset();
@@ -226,8 +241,7 @@ export default function ReportingConfigPage() {
             });
             if (res.ok) {
                 // Refresh in background
-                const refreshRes = await fetch("/api/reporting/config");
-                const data = await refreshRes.json();
+                const data = await fetchPriorities();
                 setPriorities(data);
             }
         } catch (error) {
@@ -247,8 +261,7 @@ export default function ReportingConfigPage() {
             });
             if (res.ok) {
                 // Refresh in background
-                const refreshRes = await fetch("/api/reporting/config");
-                const data = await refreshRes.json();
+                const data = await fetchPriorities();
                 setPriorities(data);
             }
         } catch (error) {
@@ -268,8 +281,7 @@ export default function ReportingConfigPage() {
             });
             if (res.ok) {
                 // Refresh in background
-                const refreshRes = await fetch("/api/reporting/config");
-                const data = await refreshRes.json();
+                const data = await fetchPriorities();
                 setPriorities(data);
             }
         } catch (error) {
@@ -300,8 +312,7 @@ export default function ReportingConfigPage() {
             if (res.ok) {
                 toast({ title: `${deleteTarget.type.charAt(0).toUpperCase() + deleteTarget.type.slice(1)} deleted successfully` });
                 // Refresh in background
-                const refreshRes = await fetch("/api/reporting/config");
-                const data = await refreshRes.json();
+                const data = await fetchPriorities();
                 setPriorities(data);
             } else {
                 toast({ title: "Failed to delete", variant: "destructive" });

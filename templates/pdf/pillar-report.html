@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{reportTitle}}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1a1a2e;
+      --gold: #c9a84c;
+      --cream: #faf7f0;
+      --sage: #3d6b5e;
+      --muted: #6b6b7b;
+      --border: #e8e0cc;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); }
+
+    .report-header {
+      background: var(--ink);
+      color: var(--cream);
+      padding: 60px 80px 50px;
+      position: relative;
+      overflow: hidden;
+    }
+    .report-header::before {
+      content: '';
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      border: 2px solid rgba(201, 168, 76, 0.15);
+    }
+    .org-badge {
+      display: inline-block;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      margin-bottom: 28px;
+    }
+    .report-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(36px, 5vw, 60px);
+      font-weight: 900;
+      line-height: 1.05;
+      margin-bottom: 12px;
+    }
+    .report-header h1 span { color: var(--gold); }
+    .report-subtitle {
+      color: rgba(250, 247, 240, 0.55);
+      font-size: 15px;
+      margin-bottom: 40px;
+    }
+    .meta-row {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      border-top: 1px solid rgba(201, 168, 76, 0.2);
+      padding-top: 28px;
+    }
+    .meta-item label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .meta-item span { font-size: 14px; color: var(--cream); }
+
+    .main-content { max-width: 1160px; margin: 0 auto; padding: 60px 40px; }
+    .section-intro {
+      text-align: center;
+      margin-bottom: 64px;
+      padding-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-intro p {
+      font-size: 13px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+    .section-intro h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 38px;
+      font-weight: 700;
+    }
+
+    .pillar { margin-bottom: 80px; }
+    .pillar-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 28px;
+      margin-bottom: 36px;
+      padding-bottom: 28px;
+      border-bottom: 2px solid var(--border);
+    }
+    .pillar-number {
+      font-family: 'Playfair Display', serif;
+      font-size: 72px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--border);
+      flex-shrink: 0;
+      margin-top: -8px;
+    }
+    .pillar-tag {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 2px;
+      margin-bottom: 10px;
+    }
+    .pillar-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .pillar-subtitle { font-size: 13px; color: var(--muted); font-style: italic; }
+    .pillar-vision {
+      background: var(--ink);
+      color: rgba(250, 247, 240, 0.85);
+      border-left: 3px solid var(--gold);
+      padding: 18px 24px;
+      font-size: 13px;
+      line-height: 1.7;
+      margin-bottom: 36px;
+      font-style: italic;
+    }
+
+    .activities-section { margin-bottom: 40px; }
+    .activities-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .activities-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .activity-card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      background: white;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .activity-data {
+      display: grid;
+      grid-template-columns: 180px 1fr 75px 115px 155px 1fr 155px;
+    }
+    .activity-data.header-row { background: var(--ink); }
+    .ad-cell {
+      padding: 11px 14px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      border-right: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .ad-cell:last-child { border-right: none; }
+    .activity-data.header-row .ad-cell {
+      font-size: 9.5px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(250, 247, 240, 0.55);
+      font-weight: 500;
+      border-right-color: rgba(255, 255, 255, 0.07);
+      padding: 10px 14px;
+    }
+    .ad-cell.activity-name { font-weight: 600; }
+    .impact-tag {
+      display: inline-block;
+      background: #e8f5ef;
+      color: var(--sage);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .photo-proof {
+      border-top: 1px solid var(--border);
+      background: #fdfcfa;
+      padding: 14px 16px 16px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .proof-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .proof-header-label {
+      font-size: 9.5px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 600;
+    }
+    .proof-header-line { flex: 1; height: 1px; background: var(--border); }
+    .proof-count {
+      font-size: 10px;
+      color: var(--muted);
+      background: var(--border);
+      border-radius: 20px;
+      padding: 1px 8px;
+    }
+    .photo-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+    .p-slot-wrap { display: flex; flex-direction: column; gap: 0; break-inside: avoid; page-break-inside: avoid; }
+    .p-slot {
+      width: 220px;
+      height: 150px;
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px dashed var(--border);
+      background: #f5f2ea;
+    }
+    .p-slot img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .p-caption {
+      width: 220px;
+      font-size: 11px;
+      border: none;
+      border-top: 1px solid var(--border);
+      padding: 4px 6px;
+      color: var(--muted);
+      background: #fdfcfa;
+      font-family: inherit;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .evaluation-section {
+      background: white;
+      border: 1px solid var(--border);
+      padding: 32px;
+      margin-top: 4px;
+      border-radius: 4px;
+    }
+    .evaluation-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .evaluation-desc {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+    .scale-legend { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 28px; }
+    .scale-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--cream);
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .scale-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .eval-rows { display: flex; flex-direction: column; }
+    .eval-row {
+      display: grid;
+      grid-template-columns: 1fr 230px;
+      gap: 24px;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .eval-row:last-child { border-bottom: none; }
+    .eval-statement { font-size: 13.5px; line-height: 1.55; }
+    .rating-wrap { display: flex; flex-direction: column; gap: 5px; }
+    .rating-bar { display: flex; gap: 3px; }
+    .rating-segment { height: 7px; flex: 1; border-radius: 2px; background: var(--border); }
+    .rating-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .r-na { color: #bbb; }
+    .r-ne { color: #e05a5a; }
+    .r-bg { color: #e08a3a; }
+    .r-gw { color: #c9a84c; }
+    .r-mt { color: var(--sage); }
+    .seg-na .rating-segment { background: #bbb; }
+    .seg-ne .s1 { background: #e05a5a; }
+    .seg-bg .s1,
+    .seg-bg .s2 { background: #e08a3a; }
+    .seg-gw .s1,
+    .seg-gw .s2,
+    .seg-gw .s3 { background: #c9a84c; }
+    .seg-mt .s1,
+    .seg-mt .s2,
+    .seg-mt .s3,
+    .seg-mt .s4 { background: var(--sage); }
+
+    .pillar-divider { width: 60px; height: 3px; background: var(--gold); margin: 0 auto 80px; }
+
+    footer {
+      background: var(--ink);
+      color: rgba(250, 247, 240, 0.4);
+      text-align: center;
+      padding: 32px;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    footer span { color: var(--gold); }
+
+    @media (max-width: 960px) {
+      .activity-data { grid-template-columns: 1fr 1fr; }
+      .activity-data.header-row { display: none; }
+      .ad-cell::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin-bottom: 3px;
+      }
+      .ad-cell { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+    @media (max-width: 600px) {
+      .report-header { padding: 40px 20px 36px; }
+      .main-content { padding: 40px 16px; }
+      .activity-data { grid-template-columns: 1fr; }
+      .pillar-header { flex-direction: column; gap: 8px; }
+      .pillar-number { font-size: 48px; }
+      .meta-row { gap: 20px; }
+      .eval-row { grid-template-columns: 1fr; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="report-header">
+    <div class="org-badge">{{organizationBadge}}</div>
+    <h1>{{reportTitle}}<br /><span>{{reportTheme}}</span></h1>
+    <p class="report-subtitle">{{reportSubtitle}}</p>
+    <div class="meta-row">
+      {{#meta}}
+        <div class="meta-item">
+          <label>{{label}}</label>
+          <span>{{value}}</span>
+        </div>
+      {{/meta}}
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div class="section-intro">
+      <p>{{sectionIntroLabel}}</p>
+      <h2>{{sectionIntroTitle}}</h2>
+    </div>
+
+    {{#pillars}}
+      <div class="pillar" data-pillar-id="{{id}}" style="animation-delay: {{animationDelay}}s">
+        <div class="pillar-header">
+          <div class="pillar-number">{{number}}</div>
+          <div class="pillar-title-block">
+            <span class="pillar-tag" style="background: {{tagColor}}">{{tagLabel}}</span>
+            <div class="pillar-title">{{title}}</div>
+            <div class="pillar-subtitle">{{subtitle}}</div>
+          </div>
+        </div>
+        <div class="pillar-vision">{{vision}}</div>
+
+        {{#sections}}
+          <div class="activities-section">
+            <div class="activities-label">{{label}}</div>
+            <div class="activity-card">
+              <div class="activity-data header-row">
+                <div class="ad-cell">Activity</div>
+                <div class="ad-cell">Beneficiaries</div>
+                <div class="ad-cell">Participants</div>
+                <div class="ad-cell">Date</div>
+                <div class="ad-cell">Facilitators</div>
+                <div class="ad-cell">Follow-up</div>
+                <div class="ad-cell">Impact</div>
+              </div>
+            </div>
+
+            {{#activities}}
+              <div class="activity-card">
+                <div class="activity-data">
+                  <div class="ad-cell activity-name" data-label="Activity">{{name}}</div>
+                  <div class="ad-cell" data-label="Beneficiaries">{{beneficiaries}}</div>
+                  <div class="ad-cell" data-label="Participants">{{participants}}</div>
+                  <div class="ad-cell" data-label="Date">{{date}}</div>
+                  <div class="ad-cell" data-label="Facilitators">{{facilitators}}</div>
+                  <div class="ad-cell" data-label="Follow-up">{{followUp}}</div>
+                  <div class="ad-cell" data-label="Impact">
+                    {{#impact}}
+                      <span class="impact-tag">{{impact}}</span>
+                    {{/impact}}
+                    {{^impact}}
+                      <span>{{impactText}}</span>
+                    {{/impact}}
+                  </div>
+                </div>
+
+                {{#photos}}
+                  <div class="photo-proof">
+                    <div class="proof-header">
+                      <span class="proof-header-label">📷 Photo Evidence</span>
+                      <span class="proof-count">{{countLabel}}</span>
+                      <span class="proof-header-line"></span>
+                    </div>
+                    <div class="photo-grid">
+                      {{#items}}
+                        <div class="p-slot-wrap">
+                          <div class="p-slot">
+                            <img src="{{src}}" alt="{{caption}}" />
+                          </div>
+                          {{#caption}}
+                            <div class="p-caption">{{caption}}</div>
+                          {{/caption}}
+                        </div>
+                      {{/items}}
+                    </div>
+                  </div>
+                {{/photos}}
+              </div>
+            {{/activities}}
+          </div>
+        {{/sections}}
+
+        {{#evaluation}}
+          <div class="evaluation-section">
+            <div class="evaluation-title">{{title}}</div>
+            <div class="evaluation-desc">{{description}}</div>
+            <div class="scale-legend">
+              {{#legend}}
+                <div class="scale-pill">
+                  <span class="scale-dot" style="background: {{color}}"></span>
+                  {{label}}
+                </div>
+              {{/legend}}
+            </div>
+            <div class="eval-rows">
+              {{#questions}}
+                <div class="eval-row">
+                  <div class="eval-statement">{{statement}}</div>
+                  <div class="rating-wrap">
+                    <div class="rating-bar {{ratingClass}}">
+                      <div class="rating-segment s1"></div>
+                      <div class="rating-segment s2"></div>
+                      <div class="rating-segment s3"></div>
+                      <div class="rating-segment s4"></div>
+                    </div>
+                    <div class="rating-label {{labelClass}}">{{ratingLabel}}</div>
+                  </div>
+                </div>
+              {{/questions}}
+            </div>
+          </div>
+        {{/evaluation}}
+      </div>
+
+      {{^isLast}}
+        <div class="pillar-divider"></div>
+      {{/isLast}}
+    {{/pillars}}
+  </div>
+
+  <footer>
+    <p>{{footerLineOne}}</p>
+    <p style="margin-top: 8px;">{{footerLineTwo}}</p>
+  </footer>
+</body>
+</html>

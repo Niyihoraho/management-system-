@@ -35,12 +35,24 @@ export default function ReportsDashboard() {
         try {
             setLoading(true);
             setError(null);
+
             const res = await fetch("/api/reporting/config");
             const data = await res.json();
+
+            if (!res.ok) {
+                const message = typeof data?.error === "string" ? data.error : "Failed to load strategic priorities.";
+                throw new Error(message);
+            }
+
+            if (!Array.isArray(data)) {
+                throw new Error("Unexpected response format.");
+            }
+
             setPillars(data);
         } catch (error) {
             console.error(error);
-            setError("Failed to load strategic priorities. Please try again.");
+            setPillars([]);
+            setError(error instanceof Error ? error.message : "Failed to load strategic priorities. Please try again.");
         } finally {
             setLoading(false);
         }

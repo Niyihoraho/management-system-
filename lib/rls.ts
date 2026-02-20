@@ -244,18 +244,17 @@ export function getReportRLSConditions(userScope: UserScope): Prisma.report_subm
     return {};
   }
 
-  // Region: See reports in their region
+  // Region: See reports in their region plus their own submissions
   if (userScope.scope === 'region' && userScope.regionId) {
     return {
-      regionId: userScope.regionId
+      OR: [
+        { regionId: userScope.regionId },
+        { userId: userScope.userId }
+      ]
     };
   }
 
-  // EXPLICIT BLOCK: University, SmallGroup, GraduateSmallGroup
-  if (["university", "smallgroup", "graduatesmallgroup"].includes(userScope.scope)) {
-    return { id: -1 }; // Effective Block
-  }
-
-  return { id: -1 }; // Default safe block
+  // Other scopes (university/smallgroup/graduatesmallgroup) only see their own submissions
+  return { userId: userScope.userId };
 }
 

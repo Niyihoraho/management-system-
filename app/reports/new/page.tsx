@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,7 +36,7 @@ type ActivityLog = {
 
 
 
-export default function ReportingWizard() {
+function ReportingWizardContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const pillarId = searchParams.get("pillarId");
@@ -220,5 +220,13 @@ export default function ReportingWizard() {
                 </Button>
             </div>
         </div>
+    );
+}
+
+export default function ReportingWizard() {
+    return (
+        <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+            <ReportingWizardContent />
+        </Suspense>
     );
 }

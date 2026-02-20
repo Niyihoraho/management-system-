@@ -56,8 +56,11 @@ export async function GET(req: Request) {
     }
 
     try {
-        // @ts-ignore
-        const userScope = await getUserScope(session.user.id);
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Access Denied: Unable to determine user scope." }, { status: 403 });
+        }
+
         const whereConditions = getReportRLSConditions(userScope);
 
         // Check for explicit block (id: -1)
@@ -72,20 +75,73 @@ export async function GET(req: Request) {
                     select: { name: true, email: true }
                 },
                 strategic_priority: {
-                    select: { name: true }
+                    select: { id: true, name: true, description: true }
                 },
                 activity_log: {
-                    select: { id: true, participantCount: true, followUpPractice: true }
+                    select: {
+                        id: true,
+                        categoryId: true,
+                        activityName: true,
+                        beneficiaries: true,
+                        participantCount: true,
+                        dateOccurred: true,
+                        facilitators: true,
+                        followUpPractice: true,
+                        impactSummary: true,
+                        imageUrl: true,
+                        activity_category: {
+                            select: { name: true }
+                        }
+                    }
                 },
                 evaluation_response: {
-                    select: { id: true }
+                    select: {
+                        id: true,
+                        questionId: true,
+                        rating: true
+                    }
                 }
             },
             take: 100, // Limit
             orderBy: { createdAt: 'desc' }
         });
 
-        return NextResponse.json(reports);
+        const normalized = reports.map((report) => ({
+            id: report.id,
+            createdAt: report.createdAt.toISOString(),
+            priorityId: report.priorityId,
+            priority: report.strategic_priority
+                ? {
+                    id: report.strategic_priority.id,
+                    name: report.strategic_priority.name,
+                    description: report.strategic_priority.description ?? "",
+                }
+                : null,
+            user: {
+                name: report.user?.name ?? null,
+                email: report.user?.email ?? null,
+            },
+            activities: report.activity_log.map((activity) => ({
+                id: activity.id,
+                categoryId: activity.categoryId,
+                categoryName: activity.activity_category?.name ?? null,
+                activityName: activity.activityName,
+                beneficiaries: activity.beneficiaries ?? "",
+                participantCount: activity.participantCount,
+                dateOccurred: activity.dateOccurred ? activity.dateOccurred.toISOString() : null,
+                facilitators: activity.facilitators ?? "",
+                followUpPractice: activity.followUpPractice ?? "",
+                impactSummary: activity.impactSummary ?? "",
+                imageUrl: activity.imageUrl ?? "",
+            })),
+            evaluations: report.evaluation_response.map((evaluation) => ({
+                id: evaluation.id,
+                questionId: evaluation.questionId,
+                rating: evaluation.rating,
+            })),
+        }));
+
+        return NextResponse.json(normalized);
     } catch (error) {
         console.error("Error fetching reports:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

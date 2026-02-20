@@ -275,12 +275,24 @@ export function ActivityRow({ index, activity, config, onUpdate, onRemove, showR
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <Label className="block mb-2">Activity Evidence</Label>
-                        <ImageUpload
-                            onUpload={(url) => onUpdate({ imageUrl: url })}
-                            defaultImage={activity.imageUrl}
-                        />
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Follow-up Practice</Label>
+                            <Textarea
+                                placeholder="How will you follow up on this activity?"
+                                className="min-h-[96px] resize-none"
+                                value={activity.followUpPractice}
+                                onChange={(e) => onUpdate({ followUpPractice: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="block mb-2">Activity Evidence</Label>
+                            <ImageUpload
+                                onUpload={(url) => onUpdate({ imageUrl: url })}
+                                defaultImage={activity.imageUrl}
+                            />
+                        </div>
                     </div>
                 </div>
             </CardContent>

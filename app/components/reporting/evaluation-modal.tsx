@@ -20,17 +20,17 @@ type ConfigData = {
     questions: { id: number; statement: string }[];
 };
 
-type ReportSubmission = {
+type EvaluationReport = {
     id: number;
-    priority: { name: string };
-    priorityId?: number; // Depending on what's returned
+    priority: { name: string } | null;
+    priorityId?: number | null;
     // ... other fields
 };
 
 interface EvaluationModalProps {
     isOpen: boolean;
     onClose: () => void;
-    report: ReportSubmission | null;
+    report: EvaluationReport | null;
     config: ConfigData | undefined;
     onSuccess: () => void;
 }
@@ -47,7 +47,7 @@ export function EvaluationModal({ isOpen, onClose, report, config, onSuccess }: 
         }
     }, [isOpen, report]);
 
-    if (!report || !config) return null;
+    if (!report || !config || !report.priority) return null;
 
     const handleSubmit = async () => {
         // Validation: ensure at least one question is answered? Or all?
