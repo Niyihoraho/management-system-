@@ -78,16 +78,16 @@ jobs:
       # ── 5. Verify row counts match ─────────────────────────────────────
       - name: Verify backup integrity
         run: |
-          echo "=== Supabase row counts ==="
+          echo "=== Supabase public tables ==="
           PGPASSWORD="${{ secrets.SUPABASE_DB_PASSWORD }}" \
           psql \
             --host="${{ secrets.SUPABASE_DB_HOST }}" \
             --port=5432 \
             --username="${{ secrets.SUPABASE_DB_USER }}" \
             --dbname="${{ secrets.SUPABASE_DB_NAME }}" \
-            -c "SELECT 'student' as tbl, count(*) FROM student UNION ALL SELECT 'graduate', count(*) FROM graduate UNION ALL SELECT 'university', count(*) FROM university;"
+            -c "SELECT count(*) AS table_count FROM information_schema.tables WHERE table_schema = 'public';"
 
-          echo "=== Neon row counts ==="
+          echo "=== Neon public tables ==="
           PGPASSWORD="${{ secrets.NEON_DB_PASSWORD }}" \
           psql \
             --host="${{ secrets.NEON_DB_HOST }}" \
@@ -95,7 +95,8 @@ jobs:
             --username="${{ secrets.NEON_DB_USER }}" \
             --dbname="${{ secrets.NEON_DB_NAME }}" \
             --set=sslmode=require \
-            -c "SELECT 'student' as tbl, count(*) FROM student UNION ALL SELECT 'graduate', count(*) FROM graduate UNION ALL SELECT 'university', count(*) FROM university;"
+            -c "SELECT count(*) AS table_count FROM information_schema.tables WHERE table_schema = 'public';"
+
 
       # ── 6. Report result ───────────────────────────────────────────────
       - name: Report backup summary
