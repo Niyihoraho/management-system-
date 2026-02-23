@@ -1,4 +1,3 @@
-import Redis from 'ioredis'
 import { Redis as UpstashRedis } from '@upstash/redis'
 
 type CacheSetOptions = {
@@ -11,84 +10,45 @@ type CacheBackend = {
   del(key: string): Promise<void>
 }
 
-type GlobalWithCache = typeof globalThis & {
-  __cacheClient?: Redis
-}
-
 const upstashUrl = process.env.UPSTASH_REDIS_REST_URL
 const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN
-const redisUrl = process.env.REDIS_URL ?? process.env.CACHE_URL
 
-const globalForCache = globalThis as GlobalWithCache
-
-// ── Upstash REST backend (best for Vercel/serverless) ───────────────────────
+// ── Upstash REST backend (serverless-safe, no native modules) ────────────────
 const createUpstashBackend = (url: string, token: string): CacheBackend => {
   const client = new UpstashRedis({ url, token })
 
   return {
     async get(key) {
-      const value = await client.get<string>(key)
-      return value ?? null
+      try {
+        const value = await client.get<string>(key)
+        return value ?? null
+      } catch {
+        return null
+      }
     },
     async set(key, value, options) {
-      if (options?.ttlSeconds && options.ttlSeconds > 0) {
-        await client.set(key, value, { ex: options.ttlSeconds })
-      } else {
-        await client.set(key, value)
+      try {
+        if (options?.ttlSeconds && options.ttlSeconds > 0) {
+          await client.set(key, value, { ex: options.ttlSeconds })
+        } else {
+          await client.set(key, value)
+        }
+      } catch {
+        // silently fail — cache is best-effort
       }
     },
     async del(key) {
-      // Support wildcard patterns for cacheDel('entity:*')
-      if (key.includes('*')) {
-        const keys = await client.keys(key)
-        if (keys.length > 0) {
-          await client.del(...keys)
+      try {
+        if (key.includes('*')) {
+          const keys = await client.keys(key)
+          if (keys.length > 0) {
+            await client.del(...(keys as [string, ...string[]]))
+          }
+        } else {
+          await client.del(key)
         }
-      } else {
-        await client.del(key)
-      }
-    },
-  }
-}
-
-// ── ioredis backend (for self-hosted Redis) ──────────────────────────────────
-const createRedisBackend = (url: string): CacheBackend => {
-  const client =
-    globalForCache.__cacheClient ??
-    new Redis(url, { lazyConnect: true, maxRetriesPerRequest: 1 })
-
-  if (!globalForCache.__cacheClient) {
-    globalForCache.__cacheClient = client
-  }
-
-  const ensureConnected = async () => {
-    if (client.status === 'wait' || client.status === 'end') {
-      await client.connect().catch(() => { })
-    }
-  }
-
-  return {
-    async get(key) {
-      await ensureConnected()
-      return client.get(key)
-    },
-    async set(key, value, options) {
-      await ensureConnected()
-      if (options?.ttlSeconds && options.ttlSeconds > 0) {
-        await client.set(key, value, 'EX', options.ttlSeconds)
-      } else {
-        await client.set(key, value)
-      }
-    },
-    async del(key) {
-      await ensureConnected()
-      if (key.includes('*')) {
-        const keys = await client.keys(key)
-        if (keys.length > 0) {
-          await client.del(...keys)
-        }
-      } else {
-        await client.del(key)
+      } catch {
+        // silently fail
       }
     },
   }
@@ -139,10 +99,8 @@ const createInMemoryBackend = (): CacheBackend => {
 // ── Select backend ───────────────────────────────────────────────────────────
 const backend: CacheBackend =
   upstashUrl && upstashToken
-    ? createUpstashBackend(upstashUrl, upstashToken)   // Upstash REST (serverless)
-    : redisUrl
-      ? createRedisBackend(redisUrl)                      // ioredis (self-hosted)
-      : createInMemoryBackend()                           // fallback
+    ? createUpstashBackend(upstashUrl, upstashToken) // Upstash REST
+    : createInMemoryBackend()                         // fallback
 
 const serialize = (value: unknown) => JSON.stringify(value)
 const deserialize = <T>(value: string | null): T | null =>
