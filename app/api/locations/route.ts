@@ -1,49 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrismaClient } from "@/lib/prisma";
+import { cacheGet, cacheSet } from "@/lib/cache";
 
-// GET /api/locations
+// GET /api/locations — provinces / districts / sectors (reference data, 1h TTL)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
     const parentId = searchParams.get("parentId");
 
-    switch (type) {
-      case "provinces":
-        const provinces = await prisma.province.findMany({
-          orderBy: { name: "asc" }
-        });
-        return NextResponse.json(provinces.map(p => ({
-          id: p.id.toString(),
-          name: p.name
-        })));
+    const cacheKey = `locations:${type}:${parentId ?? 'all'}`;
+    const cached = await cacheGet<any[]>(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
-      case "districts":
-        if (!parentId) {
-          return NextResponse.json({ error: "Parent ID required" }, { status: 400 });
-        }
-        const districts = await prisma.district.findMany({
+    const db = getPrismaClient('read');
+
+    switch (type) {
+      case "provinces": {
+        const provinces = await db.province.findMany({ orderBy: { name: "asc" } });
+        const result = provinces.map(p => ({ id: p.id.toString(), name: p.name }));
+        await cacheSet(cacheKey, result, { ttlSeconds: 3600 });
+        return NextResponse.json(result);
+      }
+      case "districts": {
+        if (!parentId) return NextResponse.json({ error: "Parent ID required" }, { status: 400 });
+        const districts = await db.district.findMany({
           where: { provinceId: BigInt(parentId) },
           orderBy: { name: "asc" }
         });
-        return NextResponse.json(districts.map(d => ({
-          id: d.id.toString(),
-          name: d.name
-        })));
-
-      case "sectors":
-        if (!parentId) {
-          return NextResponse.json({ error: "Parent ID required" }, { status: 400 });
-        }
-        const sectors = await prisma.sector.findMany({
+        const result = districts.map(d => ({ id: d.id.toString(), name: d.name }));
+        await cacheSet(cacheKey, result, { ttlSeconds: 3600 });
+        return NextResponse.json(result);
+      }
+      case "sectors": {
+        if (!parentId) return NextResponse.json({ error: "Parent ID required" }, { status: 400 });
+        const sectors = await db.sector.findMany({
           where: { districtId: BigInt(parentId) },
           orderBy: { name: "asc" }
         });
-        return NextResponse.json(sectors.map(s => ({
-          id: s.id.toString(),
-          name: s.name
-        })));
-
+        const result = sectors.map(s => ({ id: s.id.toString(), name: s.name }));
+        await cacheSet(cacheKey, result, { ttlSeconds: 3600 });
+        return NextResponse.json(result);
+      }
       default:
         return NextResponse.json({ error: "Invalid type" }, { status: 400 });
     }

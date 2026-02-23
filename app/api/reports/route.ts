@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, getPrismaClient } from "@/lib/prisma";
 import { getUserScope, getReportRLSConditions } from "@/lib/rls";
+import { cacheGet, cacheSet, cacheDel } from "@/lib/cache";
 
 export async function POST(req: Request) {
     const session = await auth();
@@ -52,6 +53,10 @@ export async function POST(req: Request) {
             },
         });
 
+        // Invalidate reports cache so next GET reflects the new submission
+        await cacheDel(`reports:${session.user.id}`);
+        await cacheDel('reports:all');
+
         return NextResponse.json(report);
     } catch (error) {
         console.error("Error submitting report:", error);
@@ -66,6 +71,7 @@ export async function GET(req: Request) {
     }
 
     try {
+        const preferPrimary = (req as any).headers?.get?.('x-read-after-write') === '1';
         const userScope = await getUserScope();
         if (!userScope) {
             return NextResponse.json({ error: "Access Denied: Unable to determine user scope." }, { status: 403 });
@@ -78,7 +84,15 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Access Denied: You do not have permission to view reports." }, { status: 403 });
         }
 
-        const reports = await prisma.report_submission.findMany({
+        // Cache-first (skip on read-after-write)
+        const cacheKey = `reports:${session.user.id}`;
+        if (!preferPrimary) {
+            const cached = await cacheGet<any[]>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const db = getPrismaClient('read', { preferPrimary });
+        const reports = await db.report_submission.findMany({
             where: whereConditions,
             include: {
                 user: {
@@ -153,6 +167,9 @@ export async function GET(req: Request) {
             })),
         }));
 
+        if (!preferPrimary) {
+            await cacheSet(cacheKey, normalized, { ttlSeconds: 120 });
+        }
         return NextResponse.json(normalized);
     } catch (error) {
         console.error("Error fetching reports:", error);

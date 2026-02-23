@@ -1,7 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, getPrismaClient } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { createGraduateSchema, updateGraduateSchema } from "../validation/graduate";
 import { getUserScope, generateRLSConditions } from "@/lib/rls";
+import { cacheGet, cacheSet, cacheDel } from "@/lib/cache";
 
 // Helper function to handle empty strings and null values
 const handleEmptyValue = (value: any) => {
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        await cacheDel('graduates:list:*');
+        await cacheDel('stats:*');
         return NextResponse.json(newGraduate, { status: 201 });
     } catch (error: any) {
         console.error("Error creating graduate:", error);
@@ -107,6 +110,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const preferPrimary = (request as any).headers?.get?.('x-read-after-write') === '1';
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search");
         const status = searchParams.get("status");
@@ -115,12 +119,15 @@ export async function GET(request: NextRequest) {
         const id = searchParams.get("id");
 
         if (id) {
-            const graduate = await prisma.graduate.findUnique({
+            const cacheKeyG = `graduates:${id}`;
+            if (!preferPrimary) {
+                const cached = await cacheGet<any>(cacheKeyG);
+                if (cached) return NextResponse.json(cached);
+            }
+            const db = getPrismaClient('read', { preferPrimary });
+            const graduate = await db.graduate.findUnique({
                 where: { id: Number(id) },
-                include: {
-                    graduatesmallgroup: true,
-                    provinces: true
-                }
+                include: { graduatesmallgroup: true, provinces: true }
             });
             if (!graduate) {
                 return NextResponse.json({ error: "Graduate not found" }, { status: 404 });
@@ -128,11 +135,6 @@ export async function GET(request: NextRequest) {
 
             // Apply RLS check for single graduate
             const rlsConditions = generateRLSConditions(userScope);
-
-            // Region check removed as graduates don't have region
-            // if (rlsConditions.regionId && graduate.regionId !== rlsConditions.regionId) {
-            //     return NextResponse.json({ error: "Access denied" }, { status: 403 });
-            // }
 
             if (rlsConditions.graduateGroupId && graduate.graduateGroupId !== rlsConditions.graduateGroupId) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
@@ -142,12 +144,10 @@ export async function GET(request: NextRequest) {
                 ...graduate,
                 provinceId: graduate.provinceId?.toString(),
                 graduateGroup: graduate.graduatesmallgroup,
-                province: graduate.provinces ? {
-                    ...graduate.provinces,
-                    id: graduate.provinces.id.toString()
-                } : null
+                province: graduate.provinces ? { ...graduate.provinces, id: graduate.provinces.id.toString() } : null
             };
 
+            if (!preferPrimary) await cacheSet(cacheKeyG, serializedGraduate, { ttlSeconds: 120 });
             return NextResponse.json(serializedGraduate, { status: 200 });
         }
 
@@ -191,28 +191,29 @@ export async function GET(request: NextRequest) {
             whereClause.provinceId = BigInt(searchParams.get("provinceId")!);
         }
 
-        const graduates = await prisma.graduate.findMany({
+        const scope = userScope.scope;
+        const cacheKey = `graduates:list:${scope}:${graduateGroupId ?? 'all'}:${status ?? 'all'}:${pillar ?? 'all'}:${searchParams.get('provinceId') ?? 'all'}`;
+        if (!preferPrimary && !search) {
+            const cached = await cacheGet<any[]>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const db = getPrismaClient('read', { preferPrimary });
+        const graduates = await db.graduate.findMany({
             where: whereClause,
-            include: {
-                graduatesmallgroup: true,
-                provinces: true,
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
+            include: { graduatesmallgroup: true, provinces: true },
+            orderBy: { createdAt: 'desc' },
         });
 
         const formattedGraduates = graduates.map(graduate => ({
             ...graduate,
             provinceId: graduate.provinceId?.toString(),
-            graduateGroup: graduate.graduatesmallgroup, // Map to expected frontend key if needed, or just keep it
+            graduateGroup: graduate.graduatesmallgroup,
             graduateSmallGroup: graduate.graduatesmallgroup,
-            province: graduate.provinces ? {
-                ...graduate.provinces,
-                id: graduate.provinces.id.toString()
-            } : null
+            province: graduate.provinces ? { ...graduate.provinces, id: graduate.provinces.id.toString() } : null
         }));
 
+        if (!preferPrimary && !search) await cacheSet(cacheKey, formattedGraduates, { ttlSeconds: 120 });
         return NextResponse.json(formattedGraduates);
     } catch (error: any) {
         console.error("Error fetching postgraduates:", error);
@@ -315,6 +316,9 @@ export async function PUT(request: NextRequest) {
             } : null
         };
 
+        await cacheDel(`graduates:${Number(id)}`);
+        await cacheDel('graduates:list:*');
+        await cacheDel('stats:*');
         return NextResponse.json(serializedUpdatedGraduate);
     } catch (error: any) {
         console.error("Error updating graduate:", error);
@@ -378,6 +382,9 @@ export async function DELETE(request: NextRequest) {
             where: { id: Number(id) }
         });
 
+        await cacheDel(`graduates:${Number(id)}`);
+        await cacheDel('graduates:list:*');
+        await cacheDel('stats:*');
         return NextResponse.json(
             { message: "Graduate deleted successfully" },
             { status: 200 }

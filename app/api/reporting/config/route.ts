@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrismaClient } from "@/lib/prisma";
+import { cacheGet, cacheSet } from "@/lib/cache";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+const CACHE_KEY = 'reporting-config';
+
+export async function GET(req: Request) {
     try {
-        const priorities = await prisma.strategic_priority.findMany({
+        const preferPrimary = (req as any).headers?.get?.('x-read-after-write') === '1';
+
+        if (!preferPrimary) {
+            const cached = await cacheGet<any[]>(CACHE_KEY);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const db = getPrismaClient('read', { preferPrimary });
+        const priorities = await db.strategic_priority.findMany({
             include: {
                 activity_category: {
                     include: {
@@ -34,6 +45,9 @@ export async function GET() {
             })),
         }));
 
+        if (!preferPrimary) {
+            await cacheSet(CACHE_KEY, formatted, { ttlSeconds: 600 });
+        }
         return NextResponse.json(formatted);
     } catch (error) {
         console.error("[/api/reporting/config] Error fetching config:", error);
