@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, getPrismaClient } from "@/lib/prisma";
 import { getUserScope, generateRLSConditions } from "@/lib/rls";
+import { cacheGet, cacheSet, cacheDel } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -10,6 +11,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const preferPrimary = (request as any).headers?.get?.('x-read-after-write') === '1';
         const { searchParams } = new URL(request.url);
         const regionId = searchParams.get("regionId");
         const universityId = searchParams.get("universityId");
@@ -23,7 +25,14 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
             }
 
-            const university = await prisma.university.findUnique({
+            const cacheKeyU = `universities:${requestedUniversityId}`;
+            if (!preferPrimary) {
+                const cached = await cacheGet<any>(cacheKeyU);
+                if (cached) return NextResponse.json(cached);
+            }
+
+            const db = getPrismaClient('read', { preferPrimary });
+            const university = await db.university.findUnique({
                 where: { id: requestedUniversityId },
                 select: {
                     id: true,
@@ -45,6 +54,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
             }
 
+            if (!preferPrimary) await cacheSet(cacheKeyU, university, { ttlSeconds: 300 });
             return NextResponse.json(university, { status: 200 });
         }
 
@@ -61,7 +71,14 @@ export async function GET(request: NextRequest) {
             where.regionId = requestedRegionId;
         }
 
-        const universities = await prisma.university.findMany({
+        const cacheKey = `universities:list:${userScope.scope}:${userScope.universityId ?? userScope.regionId ?? 'all'}:${regionId ?? ''}`;
+        if (!preferPrimary) {
+            const cached = await cacheGet<any[]>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const db = getPrismaClient('read', { preferPrimary });
+        const universities = await db.university.findMany({
             where,
             select: {
                 id: true,
@@ -74,6 +91,7 @@ export async function GET(request: NextRequest) {
                 association: { select: { name: true } }
             }
         });
+        if (!preferPrimary) await cacheSet(cacheKey, universities, { ttlSeconds: 300 });
         return NextResponse.json(universities, { status: 200 });
     } catch (error) {
         console.error("Error fetching universities:", error);
@@ -154,6 +172,9 @@ export async function POST(request: NextRequest) {
             }
         });
 
+        await cacheDel(`universities:${university.id}`);
+        await cacheDel('universities:list:*');
+        await cacheDel('stats:*');
         return NextResponse.json(university, { status: 201 });
     } catch (error) {
         console.error("Error creating university:", error);
@@ -287,6 +308,9 @@ export async function PUT(request: NextRequest) {
             });
         });
 
+        await cacheDel(`universities:${Number(universityId)}`);
+        await cacheDel('universities:list:*');
+        await cacheDel('stats:*');
         return NextResponse.json(updatedUniversity, { status: 200 });
     } catch (error) {
         console.error("Error updating university:", error);
@@ -334,6 +358,9 @@ export async function DELETE(request: NextRequest) {
             where: { id: Number(universityId) }
         });
 
+        await cacheDel(`universities:${Number(universityId)}`);
+        await cacheDel('universities:list:*');
+        await cacheDel('stats:*');
         return NextResponse.json(
             { message: "University deleted successfully" },
             { status: 200 }

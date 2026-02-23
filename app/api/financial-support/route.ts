@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, getPrismaClient } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { cacheGet, cacheSet, cacheDel } from '@/lib/cache';
 
 export async function GET(req: Request) {
     try {
@@ -9,6 +10,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const preferPrimary = (req as any).headers?.get?.('x-read-after-write') === '1';
         const { searchParams } = new URL(req.url);
         const status = searchParams.get('status');
         const search = searchParams.get('search');
@@ -17,20 +19,17 @@ export async function GET(req: Request) {
         const limit = parseInt(searchParams.get('limit') || '50');
         const skip = (page - 1) * limit;
 
-        // Build where clause for filtering
+        // Cache only when no search/filter (paginated list with filters = skip cache)
+        const cacheKey = `financial-support:${status ?? 'all'}:${provinceId ?? 'all'}:p${page}`;
+        if (!preferPrimary && !search) {
+            const cached = await cacheGet<any>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
         const where: any = {};
+        if (status && status !== 'all') where.supportStatus = status;
+        if (provinceId && provinceId !== 'all') where.graduate = { provinceId: BigInt(provinceId) };
 
-        if (status && status !== 'all') {
-            where.supportStatus = status;
-        }
-
-        if (provinceId && provinceId !== 'all') {
-            where.graduate = {
-                provinceId: BigInt(provinceId)
-            };
-        }
-
-        // Build OR conditions for search
         const searchConditions: any[] = [];
         if (search) {
             searchConditions.push(
@@ -39,13 +38,11 @@ export async function GET(req: Request) {
                 { graduate: { phone: { contains: search } } }
             );
         }
+        if (searchConditions.length > 0) where.OR = searchConditions;
 
-        if (searchConditions.length > 0) {
-            where.OR = searchConditions;
-        }
-
+        const db = getPrismaClient('read', { preferPrimary });
         const [financialSupports, total] = await Promise.all([
-            prisma.financialsupport.findMany({
+            db.financialsupport.findMany({
                 where,
                 include: {
                     graduate: {
@@ -65,25 +62,21 @@ export async function GET(req: Request) {
                 skip,
                 take: limit,
             }),
-            prisma.financialsupport.count({ where })
+            db.financialsupport.count({ where })
         ]);
 
-        return NextResponse.json({
+        const result = {
             financialSupports,
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            }
-        });
+            pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+        };
 
+        if (!preferPrimary && !search) {
+            await cacheSet(cacheKey, result, { ttlSeconds: 120 });
+        }
+        return NextResponse.json(result);
     } catch (error) {
         console.error('Error fetching financial supports:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch financial supports' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Failed to fetch financial supports' }, { status: 500 });
     }
 }
 
@@ -97,85 +90,39 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { graduateId, supportStatus, supportFrequency, supportAmount, enableReminder } = body;
 
-        // Verify graduate exists
-        const graduate = await prisma.graduate.findUnique({
-            where: { id: graduateId }
-        });
+        const graduate = await prisma.graduate.findUnique({ where: { id: graduateId } });
+        if (!graduate) return NextResponse.json({ error: 'Graduate not found' }, { status: 404 });
 
-        if (!graduate) {
-            return NextResponse.json(
-                { error: 'Graduate not found' },
-                { status: 404 }
-            );
-        }
-
-        // Check if financial support already exists
-        const existingSupport = await prisma.financialsupport.findUnique({
-            where: { graduateId }
-        });
-
+        const existingSupport = await prisma.financialsupport.findUnique({ where: { graduateId } });
         if (existingSupport) {
-            return NextResponse.json(
-                { error: 'Financial support record already exists for this graduate' },
-                { status: 409 }
-            );
+            return NextResponse.json({ error: 'Financial support record already exists for this graduate' }, { status: 409 });
         }
 
-        // Calculate next reminder date if enabled
         let nextReminderDate = null;
         if (enableReminder && supportFrequency) {
             nextReminderDate = calculateNextReminderDate(supportFrequency);
         }
 
         const financialSupport = await prisma.financialsupport.create({
-            data: {
-                graduateId,
-                supportStatus,
-                supportFrequency,
-                supportAmount,
-                enableReminder,
-                nextReminderDate,
-                status: 'active',
-                updatedAt: new Date(),
-            },
-            include: {
-                graduate: {
-                    select: {
-                        id: true,
-                        fullName: true,
-                        email: true,
-                        phone: true
-                    }
-                }
-            }
+            data: { graduateId, supportStatus, supportFrequency, supportAmount, enableReminder, nextReminderDate, status: 'active', updatedAt: new Date() },
+            include: { graduate: { select: { id: true, fullName: true, email: true, phone: true } } }
         });
 
+        await cacheDel('financial-support:*');
         return NextResponse.json(financialSupport, { status: 201 });
-
     } catch (error) {
         console.error('Error creating financial support:', error);
-        return NextResponse.json(
-            { error: 'Failed to create financial support' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Failed to create financial support' }, { status: 500 });
     }
 }
 
 function calculateNextReminderDate(frequency: string): Date {
     const now = new Date();
     const nextDate = new Date(now);
-
     switch (frequency) {
-        case 'monthly':
-            nextDate.setMonth(nextDate.getMonth() + 1);
-            break;
-        case 'half_year':
-            nextDate.setMonth(nextDate.getMonth() + 6);
-            break;
-        case 'full_year':
-            nextDate.setFullYear(nextDate.getFullYear() + 1);
-            break;
+        case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
+        case 'half_year': nextDate.setMonth(nextDate.getMonth() + 6); break;
+        case 'full_year': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
     }
-
     return nextDate;
 }

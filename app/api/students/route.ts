@@ -1,7 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, getPrismaClient } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { createStudentSchema, updateStudentSchema } from "../validation/student";
 import { getUserScope, generateRLSConditions } from "@/lib/rls";
+import { cacheGet, cacheSet, cacheDel } from "@/lib/cache";
 
 // Helper function to handle empty strings and null values
 const handleEmptyValue = (value: any) => {
@@ -105,6 +106,8 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        await cacheDel('students:*');
+        await cacheDel('stats:*');
         return NextResponse.json(newStudent, { status: 201 });
     } catch (error: any) {
         console.error("Error creating student:", error);
@@ -148,6 +151,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        const preferPrimary = (request as any).headers?.get?.('x-read-after-write') === '1';
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
         const smallGroupId = searchParams.get("smallGroupId");
@@ -156,13 +160,15 @@ export async function GET(request: NextRequest) {
 
         // If ID is provided, return specific student
         if (id) {
-            const student = await prisma.student.findUnique({
+            const cacheKeyS = `students:${id}`;
+            if (!preferPrimary) {
+                const cached = await cacheGet<any>(cacheKeyS);
+                if (cached) return NextResponse.json(cached);
+            }
+            const db = getPrismaClient('read', { preferPrimary });
+            const student = await db.student.findUnique({
                 where: { id: Number(id) },
-                include: {
-                    region: true,
-                    university: true,
-                    smallgroup: true,
-                }
+                include: { region: true, university: true, smallgroup: true }
             });
             if (!student) {
                 return NextResponse.json({ error: "Student not found" }, { status: 404 });
@@ -180,6 +186,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
             }
 
+            if (!preferPrimary) await cacheSet(cacheKeyS, student, { ttlSeconds: 120 });
             return NextResponse.json(student, { status: 200 });
         }
 
@@ -208,17 +215,22 @@ export async function GET(request: NextRequest) {
             where.regionId = requestedRegionId;
         }
 
-        // Fetch students based on the constructed 'where' clause with RLS
-        const students = await prisma.student.findMany({
+        const scope = userScope.scope;
+        const cacheKey = `students:list:${scope}:${smallGroupId ?? universityId ?? regionId ?? 'all'}`;
+        if (!preferPrimary) {
+            const cached = await cacheGet<any>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const db = getPrismaClient('read', { preferPrimary });
+        const students = await db.student.findMany({
             where,
-            include: {
-                region: true,
-                university: true,
-                smallgroup: true,
-            }
+            include: { region: true, university: true, smallgroup: true }
         });
 
-        return NextResponse.json({ students }, { status: 200 });
+        const result = { students };
+        if (!preferPrimary) await cacheSet(cacheKey, result, { ttlSeconds: 120 });
+        return NextResponse.json(result, { status: 200 });
     } catch (error) {
         console.error("Error fetching students:", error);
         return NextResponse.json(
@@ -356,6 +368,9 @@ export async function PUT(request: NextRequest) {
             }
         });
 
+        await cacheDel(`students:${Number(id)}`);
+        await cacheDel('students:list:*');
+        await cacheDel('stats:*');
         return NextResponse.json(updatedStudent, { status: 200 });
     } catch (error: any) {
         console.error("Error updating student:", error);
@@ -444,6 +459,9 @@ export async function DELETE(request: NextRequest) {
             where: { id: Number(id) }
         });
 
+        await cacheDel(`students:${Number(id)}`);
+        await cacheDel('students:list:*');
+        await cacheDel('stats:*');
         return NextResponse.json(
             { message: "Student deleted successfully" },
             { status: 200 }

@@ -1,19 +1,19 @@
-import { prisma } from "@/lib/prisma";
+import { getPrismaClient } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { cacheGet, cacheSet } from "@/lib/cache";
+
+const CACHE_KEY = 'provinces:all';
 
 export async function GET() {
     try {
-        const provinces = await prisma.province.findMany({
-            orderBy: { name: 'asc' }
-        });
+        const cached = await cacheGet<any[]>(CACHE_KEY);
+        if (cached) return NextResponse.json(cached);
 
-        // Serialize BigInt to string for JSON
-        const serialized = provinces.map(p => ({
-            ...p,
-            id: p.id.toString(),
-            // If there are other BigInt fields in Province/District relations, handle them too if included
-        }));
+        const db = getPrismaClient('read');
+        const provinces = await db.province.findMany({ orderBy: { name: 'asc' } });
 
+        const serialized = provinces.map(p => ({ ...p, id: p.id.toString() }));
+        await cacheSet(CACHE_KEY, serialized, { ttlSeconds: 3600 });
         return NextResponse.json(serialized);
     } catch (error) {
         console.error("Error fetching provinces:", error);
