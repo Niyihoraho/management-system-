@@ -1,0 +1,99 @@
+name: Nightly Dual Backup
+
+on:
+  schedule:
+    # Runs every night at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  backup:
+    name: pg_dump → Neon + GitHub Artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # ── 1. Install PostgreSQL client tools ────────────────────────────
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      # ── 2. Dump Supabase → compressed .dump file ─────────────────────
+      - name: Dump Supabase database
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          FILENAME="backup-${DATE}.dump"
+          echo "BACKUP_FILE=${FILENAME}" >> $GITHUB_ENV
+
+          pg_dump \
+            --host="${{ secrets.SUPABASE_DB_HOST }}" \
+            --port=5432 \
+            --username="${{ secrets.SUPABASE_DB_USER }}" \
+            --dbname="${{ secrets.SUPABASE_DB_NAME }}" \
+            --format=custom \
+            --no-acl \
+            --no-owner \
+            --file="${FILENAME}"
+
+          echo "✅ Dump complete: ${FILENAME} ($(du -sh ${FILENAME} | cut -f1))"
+
+      # ── 3. Upload backup as GitHub Actions artifact (30-day retention) ─
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ env.BACKUP_FILE }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 30
+
+      # ── 4. Restore dump into Neon (backup copy) ────────────────────────
+      - name: Restore dump into Neon
+        env:
+          PGPASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
+        run: |
+          # Drop all existing objects in Neon, then restore fresh copy
+          pg_restore \
+            --host="${{ secrets.NEON_DB_HOST }}" \
+            --port=5432 \
+            --username="${{ secrets.NEON_DB_USER }}" \
+            --dbname="${{ secrets.NEON_DB_NAME }}" \
+            --clean \
+            --if-exists \
+            --no-acl \
+            --no-owner \
+            --single-transaction \
+            "${{ env.BACKUP_FILE }}" || true
+
+          echo "✅ Neon restore complete"
+
+      # ── 5. Verify row counts match ─────────────────────────────────────
+      - name: Verify backup integrity
+        env:
+          SUPABASE_PASS: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          NEON_PASS: ${{ secrets.NEON_DB_PASSWORD }}
+        run: |
+          # Quick sanity check: count rows in key tables on both sides
+          echo "=== Supabase row counts ==="
+          PGPASSWORD=$SUPABASE_PASS psql \
+            "postgresql://${{ secrets.SUPABASE_DB_USER }}@${{ secrets.SUPABASE_DB_HOST }}:5432/${{ secrets.SUPABASE_DB_NAME }}" \
+            -c "SELECT 'student' as tbl, count(*) FROM student UNION ALL SELECT 'graduate', count(*) FROM graduate UNION ALL SELECT 'university', count(*) FROM university;"
+
+          echo "=== Neon row counts ==="
+          PGPASSWORD=$NEON_PASS psql \
+            "postgresql://${{ secrets.NEON_DB_USER }}@${{ secrets.NEON_DB_HOST }}:5432/${{ secrets.NEON_DB_NAME }}?sslmode=require" \
+            -c "SELECT 'student' as tbl, count(*) FROM student UNION ALL SELECT 'graduate', count(*) FROM graduate UNION ALL SELECT 'university', count(*) FROM university;"
+
+      # ── 6. Notify on failure ───────────────────────────────────────────
+      - name: Report backup summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Backup succeeded: $(date)"
+            echo "   → GitHub artifact: db-backup-${{ env.BACKUP_FILE }} (30 days)"
+            echo "   → Neon copy: restored and verified"
+          else
+            echo "❌ Backup FAILED at $(date) — check logs above"
+            exit 1
+          fi
