@@ -21,18 +21,16 @@ jobs:
 
       # ── 2. Dump Supabase → compressed .dump file ─────────────────────
       - name: Dump Supabase database
-        env:
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           DATE=$(date +%Y-%m-%d)
           FILENAME="backup-${DATE}.dump"
           echo "BACKUP_FILE=${FILENAME}" >> $GITHUB_ENV
 
+          # Use full connection URL - most reliable method for pg_dump
+          SUPABASE_URL="postgresql://${{ secrets.SUPABASE_DB_USER }}:${{ secrets.SUPABASE_DB_PASSWORD }}@${{ secrets.SUPABASE_DB_HOST }}:5432/${{ secrets.SUPABASE_DB_NAME }}?sslmode=require"
+
           pg_dump \
-            --host="${{ secrets.SUPABASE_DB_HOST }}" \
-            --port=5432 \
-            --username="${{ secrets.SUPABASE_DB_USER }}" \
-            --dbname="${{ secrets.SUPABASE_DB_NAME }}" \
+            "$SUPABASE_URL" \
             --format=custom \
             --no-acl \
             --no-owner \
@@ -50,15 +48,11 @@ jobs:
 
       # ── 4. Restore dump into Neon (backup copy) ────────────────────────
       - name: Restore dump into Neon
-        env:
-          PGPASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
         run: |
-          # Drop all existing objects in Neon, then restore fresh copy
+          NEON_URL="postgresql://${{ secrets.NEON_DB_USER }}:${{ secrets.NEON_DB_PASSWORD }}@${{ secrets.NEON_DB_HOST }}:5432/${{ secrets.NEON_DB_NAME }}?sslmode=require"
+
           pg_restore \
-            --host="${{ secrets.NEON_DB_HOST }}" \
-            --port=5432 \
-            --username="${{ secrets.NEON_DB_USER }}" \
-            --dbname="${{ secrets.NEON_DB_NAME }}" \
+            --dbname="$NEON_URL" \
             --clean \
             --if-exists \
             --no-acl \
@@ -70,22 +64,25 @@ jobs:
 
       # ── 5. Verify row counts match ─────────────────────────────────────
       - name: Verify backup integrity
-        env:
-          SUPABASE_PASS: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          NEON_PASS: ${{ secrets.NEON_DB_PASSWORD }}
         run: |
-          # Quick sanity check: count rows in key tables on both sides
+          SUPABASE_URL="postgresql://${{ secrets.SUPABASE_DB_USER }}:${{ secrets.SUPABASE_DB_PASSWORD }}@${{ secrets.SUPABASE_DB_HOST }}:5432/${{ secrets.SUPABASE_DB_NAME }}?sslmode=require"
+          NEON_URL="postgresql://${{ secrets.NEON_DB_USER }}:${{ secrets.NEON_DB_PASSWORD }}@${{ secrets.NEON_DB_HOST }}:5432/${{ secrets.NEON_DB_NAME }}?sslmode=require"
+
           echo "=== Supabase row counts ==="
-          PGPASSWORD=$SUPABASE_PASS psql \
-            "postgresql://${{ secrets.SUPABASE_DB_USER }}@${{ secrets.SUPABASE_DB_HOST }}:5432/${{ secrets.SUPABASE_DB_NAME }}" \
-            -c "SELECT 'student' as tbl, count(*) FROM student UNION ALL SELECT 'graduate', count(*) FROM graduate UNION ALL SELECT 'university', count(*) FROM university;"
+          psql "$SUPABASE_URL" -c "
+            SELECT 'student' as table_name, count(*) FROM student
+            UNION ALL SELECT 'graduate', count(*) FROM graduate
+            UNION ALL SELECT 'university', count(*) FROM university;
+          "
 
           echo "=== Neon row counts ==="
-          PGPASSWORD=$NEON_PASS psql \
-            "postgresql://${{ secrets.NEON_DB_USER }}@${{ secrets.NEON_DB_HOST }}:5432/${{ secrets.NEON_DB_NAME }}?sslmode=require" \
-            -c "SELECT 'student' as tbl, count(*) FROM student UNION ALL SELECT 'graduate', count(*) FROM graduate UNION ALL SELECT 'university', count(*) FROM university;"
+          psql "$NEON_URL" -c "
+            SELECT 'student' as table_name, count(*) FROM student
+            UNION ALL SELECT 'graduate', count(*) FROM graduate
+            UNION ALL SELECT 'university', count(*) FROM university;
+          "
 
-      # ── 6. Notify on failure ───────────────────────────────────────────
+      # ── 6. Report result ───────────────────────────────────────────────
       - name: Report backup summary
         if: always()
         run: |
