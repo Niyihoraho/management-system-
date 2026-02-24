@@ -41,6 +41,7 @@ jobs:
             --port=5432 \
             --username="${{ secrets.SUPABASE_DB_USER }}" \
             --dbname="${{ secrets.SUPABASE_DB_NAME }}" \
+            --schema=public \
             --format=custom \
             --no-acl \
             --no-owner \
@@ -66,12 +67,12 @@ jobs:
             --port=5432 \
             --username="${{ secrets.NEON_DB_USER }}" \
             --dbname="${{ secrets.NEON_DB_NAME }}" \
+            --schema=public \
             --clean \
             --if-exists \
             --no-acl \
             --no-owner \
-            --single-transaction \
-            "${{ env.BACKUP_FILE }}" || true
+            "${{ env.BACKUP_FILE }}"
 
           echo "✅ Neon restore complete"
 
