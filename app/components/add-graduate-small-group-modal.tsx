@@ -48,11 +48,12 @@ export function AddGraduateSmallGroupModal({ children, onGraduateSmallGroupAdded
         try {
             const response = await fetch('/api/provinces')
             const data = await response.json()
-            setProvinces(data)
+            setProvinces(Array.isArray(data) ? data : [])
         } catch (error) {
             console.error('Error fetching provinces:', error)
         }
     }
+
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
