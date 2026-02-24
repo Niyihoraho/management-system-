@@ -63,6 +63,7 @@ interface ViewActivityModalProps {
     activity: ActivityData | null;
     onUpdated?: () => void;
     onDeleted?: () => void;
+    canDelete?: boolean;
 }
 
 const mapActivityToForm = (activity: ActivityData | null) => ({
@@ -77,7 +78,7 @@ const mapActivityToForm = (activity: ActivityData | null) => ({
     imageUrlSecondary: activity?.imageUrlSecondary || "",
 });
 
-export function ViewActivityModal({ isOpen, onClose, activity, onUpdated, onDeleted }: ViewActivityModalProps) {
+export function ViewActivityModal({ isOpen, onClose, activity, onUpdated, onDeleted, canDelete = true }: ViewActivityModalProps) {
     const { toast } = useToast();
     const [localActivity, setLocalActivity] = useState<ActivityData | null>(activity);
     const [isEditing, setIsEditing] = useState(false);
@@ -210,31 +211,33 @@ export function ViewActivityModal({ isOpen, onClose, activity, onUpdated, onDele
                                     <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
-                                    <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Delete this activity?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Removing this activity will also remove it from exports. If it was the last
-                                                    activity for its category, that category (and pillar grouping) will no longer
-                                                    appear in reports until new data is submitted.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction asChild>
-                                                    <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                                                        {deleting ? "Deleting..." : "Delete"}
-                                                    </Button>
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                    {canDelete && (
+                                        <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Delete this activity?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Removing this activity will also remove it from exports. If it was the last
+                                                        activity for its category, that category (and pillar grouping) will no longer
+                                                        appear in reports until new data is submitted.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction asChild>
+                                                        <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                                                            {deleting ? "Deleting..." : "Delete"}
+                                                        </Button>
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
                                 </>
                             )}
                         </div>

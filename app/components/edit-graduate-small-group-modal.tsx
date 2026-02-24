@@ -73,9 +73,17 @@ export function EditGraduateSmallGroupModal({ graduateSmallGroup, onGraduateSmal
         try {
             const response = await fetch('/api/provinces')
             const data = await response.json()
-            setProvinces(data)
+            if (Array.isArray(data)) {
+                setProvinces(data)
+            } else if (Array.isArray(data?.provinces)) {
+                setProvinces(data.provinces)
+            } else {
+                console.error('Unexpected provinces payload:', data)
+                setProvinces([])
+            }
         } catch (error) {
             console.error('Error fetching provinces:', error)
+            setProvinces([])
         }
     }
 

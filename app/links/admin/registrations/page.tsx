@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { RefreshCw, Check, X, User, GraduationCap, Phone, Mail, Clock } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
@@ -29,6 +29,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
 interface RegistrationRequest {
     id: number;
@@ -38,7 +39,7 @@ interface RegistrationRequest {
     phone: string;
     email: string | null;
     createdAt: string;
-    payload: any;
+    payload: Record<string, unknown>;
     invitationLink?: {
         slug: string;
         description: string;
@@ -46,7 +47,8 @@ interface RegistrationRequest {
 }
 
 export default function RegistrationsPage() {
-    const { data: session, status } = useSession();
+    const router = useRouter();
+    const { userRole } = useRoleAccess();
     const [requests, setRequests] = useState<RegistrationRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
@@ -66,8 +68,15 @@ export default function RegistrationsPage() {
     }, []);
 
     useEffect(() => {
+        if (userRole === null) return;
+
+        if (!['superadmin', 'national', 'region', 'university'].includes(userRole)) {
+            router.replace('/dashboard');
+            return;
+        }
+
         fetchRequests();
-    }, [fetchRequests]);
+    }, [fetchRequests, router, userRole]);
 
     const handleAction = async (action: 'approve' | 'reject') => {
         if (!selectedRequest) return;
@@ -79,9 +88,12 @@ export default function RegistrationsPage() {
             toast.success(`Request ${action}d successfully`);
             setRequests(prev => prev.filter(r => r.id !== selectedRequest.id));
             setSelectedRequest(null);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            toast.error(error.response?.data || `Failed to ${action} request`);
+            const message = axios.isAxiosError(error)
+                ? error.response?.data || `Failed to ${action} request`
+                : `Failed to ${action} request`;
+            toast.error(String(message));
         } finally {
             setIsProcessing(false);
         }

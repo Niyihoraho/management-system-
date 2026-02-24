@@ -45,19 +45,34 @@ export default function Page() {
   // Fetch stats from students and graduates
   useEffect(() => {
     const fetchStats = async () => {
-      if (status !== 'authenticated') return;
+      if (status !== 'authenticated' || !userRole) return;
 
       try {
+        const canViewStudents = userRole !== 'graduatesmallgroup';
+        const canViewGraduates = userRole === 'superadmin' || userRole === 'national' || userRole === 'graduatesmallgroup';
+
         const [studentsRes, graduatesRes] = await Promise.all([
-          fetch('/api/students'),
-          fetch('/api/graduates')
+          canViewStudents
+            ? fetch('/api/students', { cache: 'no-store', headers: { 'x-read-after-write': '1' } })
+            : Promise.resolve(null),
+          canViewGraduates
+            ? fetch('/api/graduates', { cache: 'no-store', headers: { 'x-read-after-write': '1' } })
+            : Promise.resolve(null)
         ]);
 
-        const students = studentsRes.ok ? await studentsRes.json() : [];
-        const graduates = graduatesRes.ok ? await graduatesRes.json() : [];
+        const studentsPayload = studentsRes?.ok ? await studentsRes.json() : [];
+        const graduatesPayload = graduatesRes?.ok ? await graduatesRes.json() : [];
+
+        const students = Array.isArray(studentsPayload)
+          ? studentsPayload
+          : studentsPayload?.students || [];
+
+        const graduates = Array.isArray(graduatesPayload)
+          ? graduatesPayload
+          : graduatesPayload?.graduates || [];
 
         // Combine logic
-        const allUsers = [...(Array.isArray(students) ? students : []), ...(Array.isArray(graduates) ? graduates : [])];
+        const allUsers = [...students, ...graduates];
 
         const now = new Date();
         const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -80,7 +95,7 @@ export default function Page() {
     };
 
     fetchStats();
-  }, [status]);
+  }, [status, userRole]);
 
 
   // Helper function to get scope display information
@@ -347,7 +362,7 @@ export default function Page() {
               </AllowOnly>
 
               {/* Small Group Actions */}
-              <AllowOnly scopes="smallGroup">
+              <AllowOnly scopes="smallgroup">
                 <div className="p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
@@ -362,7 +377,7 @@ export default function Page() {
               </AllowOnly>
 
               {/* Alumni Group Actions */}
-              <AllowOnly scopes="graduateSmallGroup">
+              <AllowOnly scopes="graduatesmallgroup">
                 <div className="p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">

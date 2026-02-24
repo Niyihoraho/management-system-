@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
 interface CreateInvitationModalProps {
     onLinkCreated: () => void;
@@ -32,6 +33,7 @@ interface CreateInvitationModalProps {
 }
 
 export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitationModalProps) {
+    const { userRole } = useRoleAccess();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -47,6 +49,13 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
     const [selectedRegion, setSelectedRegion] = useState<string>('');
     const [universities, setUniversities] = useState<{ id: number; name: string }[]>([]);
     const [selectedUniversityIds, setSelectedUniversityIds] = useState<number[]>([]);
+    const canSelectGraduate = userRole === 'superadmin';
+
+    useEffect(() => {
+        if (!canSelectGraduate) {
+            setType('student');
+        }
+    }, [canSelectGraduate]);
 
     // Fetch Regions on mount
     useEffect(() => {
@@ -180,16 +189,18 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
                                     Student
                                 </Label>
                             </div>
-                            <div>
-                                <RadioGroupItem value="graduate" id="graduate" className="peer sr-only" />
-                                <Label
-                                    htmlFor="graduate"
-                                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                >
-                                    <User className="mb-2 h-6 w-6" />
-                                    Graduate
-                                </Label>
-                            </div>
+                            {canSelectGraduate && (
+                                <div>
+                                    <RadioGroupItem value="graduate" id="graduate" className="peer sr-only" />
+                                    <Label
+                                        htmlFor="graduate"
+                                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                    >
+                                        <User className="mb-2 h-6 w-6" />
+                                        Graduate
+                                    </Label>
+                                </div>
+                            )}
                         </RadioGroup>
                     </div>
 

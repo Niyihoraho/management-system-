@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/lib/generated/prisma';
 import { getUserScope } from "@/lib/rls";
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
     try {
         // Get user scope
         const userScope = await getUserScope();
@@ -11,20 +12,32 @@ export async function GET(req: Request) {
         }
 
         // Build where clause based on scope
-        const where: any = { status: 'PENDING' };
+        const where: Prisma.registrationrequestWhereInput = { status: 'PENDING' };
 
         if (userScope.scope === 'region' && userScope.regionId) {
             where.invitationlink = {
                 regionId: userScope.regionId
             };
         } else if (userScope.scope === 'university' && userScope.universityId) {
-            // University Admins see requests from links associated with their university
-            where.invitationlink = {
-                university: {
-                    some: {
-                        id: userScope.universityId
-                    }
-                }
+            // University Admins see requests from links associated with their university.
+            // Resolve link IDs first to avoid nested relation filter failures.
+            const links = await prisma.invitationlink.findMany({
+                where: {
+                    university: {
+                        some: {
+                            id: userScope.universityId,
+                        },
+                    },
+                },
+                select: { id: true },
+            });
+
+            if (links.length === 0) {
+                return NextResponse.json({ requests: [] });
+            }
+
+            where.invitationLinkId = {
+                in: links.map((link) => link.id),
             };
         } else if (userScope.scope === 'superadmin' || userScope.scope === 'national') {
             // No filter needed

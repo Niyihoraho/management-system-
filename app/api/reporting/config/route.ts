@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getPrismaClient } from "@/lib/prisma";
 import { cacheGet, cacheSet } from "@/lib/cache";
+import { auth } from "@/lib/auth";
+import { getUserScope } from "@/lib/rls";
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +10,20 @@ const CACHE_KEY = 'reporting-config';
 
 export async function GET(req: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        if (!["superadmin", "national", "region"].includes(userScope.scope)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
         const preferPrimary = (req as any).headers?.get?.('x-read-after-write') === '1';
 
         if (!preferPrimary) {

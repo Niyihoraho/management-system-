@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
 
         // If ID is provided, return specific student
         if (id) {
-            const cacheKeyS = `students:${id}`;
+            const cacheKeyS = `students:${userScope.userId}:${id}`;
             if (!preferPrimary) {
                 const cached = await cacheGet<any>(cacheKeyS);
                 if (cached) return NextResponse.json(cached);
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
 
         // Build the filter object with RLS conditions
         const rlsConditions = generateRLSConditions(userScope);
-        let where: any = { ...rlsConditions };
+        const where: any = { ...rlsConditions };
 
         // Apply explicit filters if they exist (but they must be within user's scope)
         if (smallGroupId) {
@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
         }
 
         const scope = userScope.scope;
-        const cacheKey = `students:list:${scope}:${smallGroupId ?? universityId ?? regionId ?? 'all'}`;
+        const cacheKey = `students:list:${userScope.userId}:${scope}:${smallGroupId ?? universityId ?? regionId ?? 'all'}`;
         if (!preferPrimary) {
             const cached = await cacheGet<any>(cacheKey);
             if (cached) return NextResponse.json(cached);
@@ -368,7 +368,7 @@ export async function PUT(request: NextRequest) {
             }
         });
 
-        await cacheDel(`students:${Number(id)}`);
+        await cacheDel(`students:*:${Number(id)}`);
         await cacheDel('students:list:*');
         await cacheDel('stats:*');
         return NextResponse.json(updatedStudent, { status: 200 });
@@ -459,7 +459,7 @@ export async function DELETE(request: NextRequest) {
             where: { id: Number(id) }
         });
 
-        await cacheDel(`students:${Number(id)}`);
+        await cacheDel(`students:*:${Number(id)}`);
         await cacheDel('students:list:*');
         await cacheDel('stats:*');
         return NextResponse.json(

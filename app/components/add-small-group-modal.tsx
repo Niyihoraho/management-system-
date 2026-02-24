@@ -46,12 +46,48 @@ export function AddSmallGroupModal({ children, onSmallGroupAdded }: AddSmallGrou
     universityId: "",
   })
 
+  const { userScope, loading: scopeLoading } = useUserScope()
+
+  const visibleFields = React.useMemo(() => {
+    if (!userScope || scopeLoading) {
+      return { region: true, university: true }
+    }
+
+    return {
+      region: userScope.scope === "superadmin" || userScope.scope === "national",
+      university: userScope.scope === "superadmin" || userScope.scope === "national" || userScope.scope === "region",
+    }
+  }, [userScope, scopeLoading])
+
+  const defaultValues = React.useMemo(() => {
+    if (!userScope || scopeLoading) {
+      return { regionId: "", universityId: "" }
+    }
+
+    return {
+      regionId: (userScope.region?.id ?? userScope.regionId)?.toString() || "",
+      universityId: (userScope.university?.id ?? userScope.universityId)?.toString() || "",
+    }
+  }, [userScope, scopeLoading])
+
   // Fetch regions and universities on modal open
   React.useEffect(() => {
     if (open) {
       fetchRegions()
     }
   }, [open])
+
+  React.useEffect(() => {
+    if (!open || !userScope || scopeLoading) {
+      return
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      regionId: prev.regionId || defaultValues.regionId,
+      universityId: prev.universityId || defaultValues.universityId,
+    }))
+  }, [open, userScope, scopeLoading, defaultValues.regionId, defaultValues.universityId])
 
   // Fetch universities when region changes
   React.useEffect(() => {

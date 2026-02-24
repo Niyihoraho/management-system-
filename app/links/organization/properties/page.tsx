@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Search, RefreshCw, Plus, Edit, Trash2, Package } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
@@ -21,6 +22,7 @@ import {
     SidebarProvider,
     SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
 interface Property {
     id: number;
@@ -47,6 +49,8 @@ const PROPERTY_KINDS: Record<string, string> = {
 };
 
 export default function PropertiesPage() {
+    const router = useRouter();
+    const { userRole, isLoading: roleLoading } = useRoleAccess();
     const [searchTerm, setSearchTerm] = useState('');
     const [properties, setProperties] = useState<Property[]>([]);
     const [loading, setLoading] = useState(true);
@@ -136,8 +140,15 @@ export default function PropertiesPage() {
 
     // Load properties on component mount
     useEffect(() => {
+        if (roleLoading) return;
+
+        if (!userRole || !['superadmin', 'national', 'region'].includes(userRole)) {
+            router.replace('/dashboard');
+            return;
+        }
+
         fetchProperties();
-    }, []);
+    }, [roleLoading, router, userRole]);
 
     const filteredProperties = properties.filter(property => {
         if (!searchTerm) return true;

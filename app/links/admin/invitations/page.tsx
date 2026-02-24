@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Trash2, Copy, ExternalLink, QrCode } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, Copy, ExternalLink } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { CreateInvitationModal } from "@/components/create-invitation-modal";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -42,9 +43,11 @@ interface InvitationLink {
 }
 
 export default function InvitationsPage() {
-    const { data: session, status } = useSession();
+    const router = useRouter();
+    const { userRole } = useRoleAccess();
     const [links, setLinks] = useState<InvitationLink[]>([]);
     const [loading, setLoading] = useState(true);
+    const canManageInvitations = ['superadmin', 'region', 'university'].includes(userRole || '');
 
     const fetchLinks = useCallback(async () => {
         try {
@@ -60,8 +63,15 @@ export default function InvitationsPage() {
     }, []);
 
     useEffect(() => {
+        if (userRole === null) return;
+
+        if (!['superadmin', 'region', 'university'].includes(userRole)) {
+            router.replace('/dashboard');
+            return;
+        }
+
         fetchLinks();
-    }, [fetchLinks]);
+    }, [fetchLinks, router, userRole]);
 
     const copyToClipboard = (slug: string) => {
         const url = `${window.location.origin}/join/${slug}`;
@@ -121,12 +131,14 @@ export default function InvitationsPage() {
                                     <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                                     Refresh
                                 </Button>
-                                <CreateInvitationModal onLinkCreated={fetchLinks}>
-                                    <Button size="sm">
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Create New Link
-                                    </Button>
-                                </CreateInvitationModal>
+                                {canManageInvitations && (
+                                    <CreateInvitationModal onLinkCreated={fetchLinks}>
+                                        <Button size="sm">
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Create New Link
+                                        </Button>
+                                    </CreateInvitationModal>
+                                )}
                             </div>
                         </div>
 
@@ -206,9 +218,11 @@ export default function InvitationsPage() {
                                                                         <ExternalLink className="h-4 w-4" />
                                                                     </Button>
                                                                 </Link>
-                                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteLink(link.id)}>
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
+                                                                {canManageInvitations && (
+                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteLink(link.id)}>
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </tr>

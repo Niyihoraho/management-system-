@@ -2,6 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { userRoleSchema } from "../validation/user";
 
+const toJsonSafe = <T>(value: T): T => {
+    return JSON.parse(
+        JSON.stringify(value, (_, v) => (typeof v === "bigint" ? v.toString() : v))
+    ) as T;
+};
+
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -74,7 +80,7 @@ export async function POST(request: NextRequest) {
             }
         });
 
-        return NextResponse.json(newRole, { status: 201 });
+        return NextResponse.json(toJsonSafe(newRole), { status: 201 });
     } catch (error: unknown) {
         console.error("Error creating user role:", error);
         return NextResponse.json(
@@ -114,7 +120,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Role not found" }, { status: 404 });
             }
 
-            return NextResponse.json(role, { status: 200 });
+            return NextResponse.json(toJsonSafe(role), { status: 200 });
         }
 
         if (userId) {
@@ -129,7 +135,7 @@ export async function GET(request: NextRequest) {
                 }
             });
 
-            return NextResponse.json({ roles }, { status: 200 });
+            return NextResponse.json({ roles: toJsonSafe(roles) }, { status: 200 });
         }
 
         // Get all roles
@@ -151,7 +157,7 @@ export async function GET(request: NextRequest) {
             orderBy: { assignedAt: 'desc' }
         });
 
-        return NextResponse.json({ roles }, { status: 200 });
+        return NextResponse.json({ roles: toJsonSafe(roles) }, { status: 200 });
     } catch (error: unknown) {
         console.error("Error fetching user roles:", error);
         return NextResponse.json(
@@ -208,7 +214,7 @@ export async function PUT(request: NextRequest) {
             }
         });
 
-        return NextResponse.json(updatedRole, { status: 200 });
+        return NextResponse.json(toJsonSafe(updatedRole), { status: 200 });
     } catch (error: unknown) {
         console.error("Error updating user role:", error);
         return NextResponse.json(

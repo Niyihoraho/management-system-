@@ -106,19 +106,6 @@ export function useSidebarCache() {
             },
           ];
 
-          // Only add Member Import for specific roles
-          if (
-            scopedRole === "superadmin" ||
-            scopedRole === "region" ||
-            scopedRole === "university"
-          ) {
-            baseItems.push({
-              name: "Member Import",
-              path: "/links/people/import",
-              pro: false,
-            });
-          }
-
           return baseItems;
         })(),
       },

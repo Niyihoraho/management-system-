@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/lib/generated/prisma';
+import { getUserScope } from '@/lib/rls';
 import { z } from 'zod';
 
 // Schema for creating an invitation link
@@ -22,15 +24,22 @@ export async function POST(req: Request) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        // Check if user is superadmin
-        const isSuperAdmin = session.user.roles?.some(role => role.scope === 'superadmin');
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return new NextResponse('Forbidden', { status: 403 });
+        }
 
-        if (!isSuperAdmin) {
-            return new NextResponse('Forbidden: Only Superadmins can create invitation links', { status: 403 });
+        const canCreate = ['superadmin', 'region', 'university'].includes(userScope.scope);
+        if (!canCreate) {
+            return new NextResponse('Forbidden', { status: 403 });
         }
 
         const body = await req.json();
         const validatedData = createInvitationSchema.parse(body);
+
+        if (validatedData.type === 'graduate' && userScope.scope !== 'superadmin') {
+            return new NextResponse('Forbidden: Only superadmin can create graduate invitation links', { status: 403 });
+        }
 
         // Check if slug already exists
         const existing = await prisma.invitationlink.findUnique({
@@ -41,6 +50,40 @@ export async function POST(req: Request) {
             return new NextResponse('Slug already exists', { status: 409 });
         }
 
+        let scopedRegionId = validatedData.regionId;
+        let scopedUniversityIds = validatedData.universityIds;
+
+        if (userScope.scope === 'region') {
+            if (!userScope.regionId) {
+                return new NextResponse('Forbidden: Region scope is not configured', { status: 403 });
+            }
+
+            scopedRegionId = userScope.regionId;
+
+            if (Array.isArray(scopedUniversityIds) && scopedUniversityIds.length > 0) {
+                const allowedUniversities = await prisma.university.findMany({
+                    where: {
+                        id: { in: scopedUniversityIds },
+                        regionId: userScope.regionId,
+                    },
+                    select: { id: true },
+                });
+
+                if (allowedUniversities.length !== scopedUniversityIds.length) {
+                    return new NextResponse('Forbidden: One or more universities are outside your region', { status: 403 });
+                }
+            }
+        }
+
+        if (userScope.scope === 'university') {
+            if (!userScope.universityId) {
+                return new NextResponse('Forbidden: University scope is not configured', { status: 403 });
+            }
+
+            scopedUniversityIds = [userScope.universityId];
+            scopedRegionId = userScope.regionId ?? scopedRegionId;
+        }
+
         const invitation = await prisma.invitationlink.create({
             data: {
                 id: randomUUID(),
@@ -49,10 +92,10 @@ export async function POST(req: Request) {
                 expiration: new Date(validatedData.expiration),
                 description: validatedData.description,
                 createdBy: session.user.id,
-                regionId: validatedData.regionId,
+                regionId: scopedRegionId,
                 updatedAt: new Date(),
-                university: validatedData.universityIds ? {
-                    connect: validatedData.universityIds.map(id => ({ id }))
+                university: scopedUniversityIds ? {
+                    connect: scopedUniversityIds.map(id => ({ id }))
                 } : undefined,
             },
         });
@@ -75,10 +118,13 @@ export async function GET(req: Request) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        // Check if user is superadmin
-        const isSuperAdmin = session.user.roles?.some(role => role.scope === 'superadmin');
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return new NextResponse('Forbidden', { status: 403 });
+        }
 
-        if (!isSuperAdmin) {
+        const canView = ['superadmin', 'region', 'university'].includes(userScope.scope);
+        if (!canView) {
             return new NextResponse('Forbidden', { status: 403 });
         }
 
@@ -87,10 +133,20 @@ export async function GET(req: Request) {
         const limit = parseInt(searchParams.get('limit') || '10');
         const skip = (page - 1) * limit;
 
+        const where: Prisma.invitationlinkWhereInput = {};
+        if (userScope.scope === 'region' && userScope.regionId) {
+            where.regionId = userScope.regionId;
+        } else if (userScope.scope === 'university' && userScope.universityId) {
+            where.university = {
+                some: { id: userScope.universityId }
+            };
+        }
+
         const [linksRaw, total] = await Promise.all([
             prisma.invitationlink.findMany({
                 skip,
                 take: limit,
+                where,
                 orderBy: { createdAt: 'desc' },
                 include: {
                     _count: {
@@ -107,7 +163,7 @@ export async function GET(req: Request) {
                     },
                 },
             }),
-            prisma.invitationlink.count(),
+            prisma.invitationlink.count({ where }),
         ]);
 
         const links = linksRaw.map(({ user, university, _count, ...rest }) => ({

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
             }
 
-            const cacheKeyR = `regions:${requestedRegionId}`;
+            const cacheKeyR = `regions:${userScope.userId}:${requestedRegionId}`;
             if (!preferPrimary) {
                 const cached = await cacheGet<any>(cacheKeyR);
                 if (cached) return NextResponse.json(cached);
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
             where.id = userScope.regionId;
         }
 
-        const cacheKey = `regions:list:${userScope.scope}:${userScope.regionId ?? 'all'}`;
+        const cacheKey = `regions:list:${userScope.userId}:${userScope.scope}:${userScope.regionId ?? 'all'}`;
         if (!preferPrimary) {
             const cached = await cacheGet<any[]>(cacheKey);
             if (cached) return NextResponse.json(cached);
@@ -119,7 +119,7 @@ export async function PUT(request: NextRequest) {
             select: { id: true, name: true }
         });
 
-        await cacheDel(`regions:${Number(regionId)}`);
+        await cacheDel(`regions:*:${Number(regionId)}`);
         await cacheDel('regions:list:*');
         await cacheDel('stats:*');
         return NextResponse.json(updatedRegion, { status: 200 });
@@ -152,7 +152,7 @@ export async function DELETE(request: NextRequest) {
 
         await prisma.region.delete({ where: { id: Number(regionId) } });
 
-        await cacheDel(`regions:${Number(regionId)}`);
+        await cacheDel(`regions:*:${Number(regionId)}`);
         await cacheDel('regions:list:*');
         await cacheDel('universities:list:*');
         await cacheDel('stats:*');

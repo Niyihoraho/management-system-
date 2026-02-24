@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, Fragment } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -33,6 +34,7 @@ import { RefreshCw, Search, FileText, Download, Star, Eye, Loader2 } from "lucid
 import { EvaluationModal } from "@/components/reporting/evaluation-modal";
 import { ViewActivityModal } from "@/app/components/reporting/view-activity-modal";
 import { useToast } from "@/components/ui/use-toast";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -69,6 +71,8 @@ type ConfigData = {
 };
 
 export default function AdminReportsPage() {
+    const router = useRouter();
+    const { userRole, isLoading: roleLoading } = useRoleAccess();
     const [reports, setReports] = useState<ReportSubmission[]>([]);
     const [config, setConfig] = useState<ConfigData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -85,6 +89,7 @@ export default function AdminReportsPage() {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
     const { toast } = useToast();
+    const canDeleteActivity = userRole !== "region";
 
     const fetchReports = async () => {
         try {
@@ -113,9 +118,16 @@ export default function AdminReportsPage() {
     };
 
     useEffect(() => {
+        if (roleLoading) return;
+
+        if (!userRole || !["superadmin", "national", "region"].includes(userRole)) {
+            router.replace("/dashboard");
+            return;
+        }
+
         fetchReports();
         fetchConfig();
-    }, []);
+    }, [roleLoading, router, userRole]);
 
     const normalizedSearch = searchTerm.trim().toLowerCase();
     const filteredReports = useMemo(() => {
@@ -530,6 +542,7 @@ export default function AdminReportsPage() {
                             onClose={() => setIsViewModalOpen(false)}
                             activity={selectedActivity}
                             onUpdated={fetchReports}
+                            canDelete={canDeleteActivity}
                             onDeleted={() => {
                                 fetchReports();
                                 setSelectedActivity(null);

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 
-export type UserRole = 'superadmin' | 'national' | 'region' | 'university' | 'smallGroup' | 'graduateSmallGroup';
+export type UserRole = 'superadmin' | 'national' | 'region' | 'university' | 'smallgroup' | 'graduatesmallgroup';
 
 interface RoleAccessContextType {
     userRole: UserRole | null;
@@ -42,8 +42,8 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
                 'national': 90,
                 'region': 80,
                 'university': 70,
-                'graduateSmallGroup': 60,
-                'smallGroup': 50
+                'graduatesmallgroup': 60,
+                'smallgroup': 50
             };
 
             const sortedRoles = [...roles].sort((a, b) => {

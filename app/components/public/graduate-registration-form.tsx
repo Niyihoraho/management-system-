@@ -192,7 +192,8 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
 
                 // Fetch Graduate Cells for this province
                 const cellsResponse = await axios.get(`/api/graduate-small-groups?provinceId=${province.id}`);
-                setGraduateCells(cellsResponse.data);
+                const cellsData = cellsResponse.data;
+                setGraduateCells(Array.isArray(cellsData) ? cellsData : (cellsData?.graduateGroups || []));
             } catch (error) {
                 console.error("Failed to fetch districts or cells", error);
             }

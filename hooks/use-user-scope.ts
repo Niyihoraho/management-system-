@@ -87,6 +87,8 @@ export function useUserScope() {
   return {
     userScope,
     loading,
+    scopeLoading: loading,
+    isLoading: loading,
     error,
     getVisibleFields,
     getDefaultValues

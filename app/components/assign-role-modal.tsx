@@ -23,6 +23,12 @@ import { UserCheck, Shield, MapPin, Building2, Users, Crown } from "lucide-react
 import { useState } from "react";
 import axios from "axios";
 
+const extractList = <T,>(payload: any, property?: string): T[] => {
+    if (Array.isArray(payload)) return payload as T[];
+    if (property && Array.isArray(payload?.[property])) return payload[property] as T[];
+    return [];
+};
+
 interface AssignRoleModalProps {
     children: React.ReactNode;
     userId: string;
@@ -43,6 +49,7 @@ export function AssignRoleModal({
     const [universityId, setUniversityId] = useState<string>("");
     const [smallGroupId, setSmallGroupId] = useState<string>("");
     const [graduateGroupId, setGraduateGroupId] = useState<string>("");
+    const [provinceId, setProvinceId] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
 
     // Data for dropdowns
@@ -50,11 +57,13 @@ export function AssignRoleModal({
     const [universities, setUniversities] = useState<any[]>([]);
     const [smallGroups, setSmallGroups] = useState<any[]>([]);
     const [graduateGroups, setGraduateGroups] = useState<any[]>([]);
+    const [provinces, setProvinces] = useState<any[]>([]);
 
     // Fetch data when modal opens
     React.useEffect(() => {
         if (open) {
             fetchRegions();
+            fetchProvinces();
             setError(null);
         }
     }, [open]);
@@ -64,10 +73,13 @@ export function AssignRoleModal({
         if (regionId && (scope === "university" || scope === "smallgroup")) {
             fetchUniversities(regionId);
         }
-        if (regionId && scope === "graduatesmallgroup") {
-            fetchGraduateGroups(regionId);
-        }
     }, [regionId, scope]);
+
+    React.useEffect(() => {
+        if (provinceId && scope === "graduatesmallgroup") {
+            fetchGraduateGroups(provinceId);
+        }
+    }, [provinceId, scope]);
 
     React.useEffect(() => {
         if (universityId && scope === "smallgroup") {
@@ -75,19 +87,36 @@ export function AssignRoleModal({
         }
     }, [universityId, scope]);
 
+    React.useEffect(() => {
+        setRegionId("");
+        setProvinceId("");
+        setUniversityId("");
+        setSmallGroupId("");
+        setGraduateGroupId("");
+    }, [scope]);
+
     const fetchRegions = async () => {
         try {
             const response = await axios.get("/api/regions");
-            setRegions(response.data.regions || []);
+            setRegions(extractList(response.data, "regions"));
         } catch (error) {
             console.error("Error fetching regions:", error);
+        }
+    };
+
+    const fetchProvinces = async () => {
+        try {
+            const response = await axios.get("/api/provinces");
+            setProvinces(extractList(response.data, "provinces"));
+        } catch (error) {
+            console.error("Error fetching provinces:", error);
         }
     };
 
     const fetchUniversities = async (rId: string) => {
         try {
             const response = await axios.get(`/api/universities?regionId=${rId}`);
-            setUniversities(response.data.universities || []);
+            setUniversities(extractList(response.data, "universities"));
         } catch (error) {
             console.error("Error fetching universities:", error);
         }
@@ -96,16 +125,16 @@ export function AssignRoleModal({
     const fetchSmallGroups = async (uId: string) => {
         try {
             const response = await axios.get(`/api/small-groups?universityId=${uId}`);
-            setSmallGroups(response.data.smallGroups || []);
+            setSmallGroups(extractList(response.data, "smallGroups"));
         } catch (error) {
             console.error("Error fetching small groups:", error);
         }
     };
 
-    const fetchGraduateGroups = async (rId: string) => {
+    const fetchGraduateGroups = async (pId: string) => {
         try {
-            const response = await axios.get(`/api/graduate-small-groups?regionId=${rId}`);
-            setGraduateGroups(response.data.graduateGroups || []);
+            const response = await axios.get(`/api/graduate-small-groups?provinceId=${pId}`);
+            setGraduateGroups(extractList(response.data, "graduateGroups"));
         } catch (error) {
             console.error("Error fetching graduate groups:", error);
         }
@@ -134,6 +163,7 @@ export function AssignRoleModal({
             // Reset form
             setScope("");
             setRegionId("");
+            setProvinceId("");
             setUniversityId("");
             setSmallGroupId("");
             setGraduateGroupId("");
@@ -204,7 +234,7 @@ export function AssignRoleModal({
                                         </Select>
                                     </div>
 
-                                    {(scope === "region" || scope === "university" || scope === "smallgroup" || scope === "graduatesmallgroup") && (
+                                    {(scope === "region" || scope === "university" || scope === "smallgroup") && (
                                         <div className="space-y-2">
                                             <Label htmlFor="region" className="text-sm font-medium flex items-center gap-2">
                                                 <MapPin className="h-4 w-4" />
@@ -218,6 +248,27 @@ export function AssignRoleModal({
                                                     {regions.map((region) => (
                                                         <SelectItem key={region.id} value={region.id.toString()}>
                                                             {region.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {scope === "graduatesmallgroup" && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="province" className="text-sm font-medium flex items-center gap-2">
+                                                <MapPin className="h-4 w-4" />
+                                                Province *
+                                            </Label>
+                                            <Select value={provinceId} onValueChange={setProvinceId} required>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select province" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {provinces.map((province) => (
+                                                        <SelectItem key={province.id} value={province.id.toString()}>
+                                                            {province.name}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>

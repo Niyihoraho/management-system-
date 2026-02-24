@@ -234,7 +234,7 @@ export function getTableRLSConditions(userScope: UserScope, tableName: string): 
 /**
  * Get RLS conditions for Report Submissions (Explicit Restriction)
  * BLOCKS: University, SmallGroup, GraduateSmallGroup
- * ALLOWS: Superadmin, National, Region (filtered)
+ * ALLOWS: Superadmin, National, Region
  */
 export function getReportRLSConditions(userScope: UserScope): Prisma.report_submissionWhereInput | { id: number } {
   if (!userScope) return { id: -1 }; // Block if no scope
@@ -254,7 +254,7 @@ export function getReportRLSConditions(userScope: UserScope): Prisma.report_subm
     };
   }
 
-  // Other scopes (university/smallgroup/graduatesmallgroup) only see their own submissions
-  return { userId: userScope.userId };
+  // Other scopes (university/smallgroup/graduatesmallgroup) are blocked
+  return { id: -1 };
 }
 

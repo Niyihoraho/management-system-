@@ -2,30 +2,16 @@
 
 import * as React from "react"
 import {
-    AudioWaveform,
-    BookOpen,
-    Bot,
-    Command,
-    Frame,
-    GalleryVerticalEnd,
-    Map,
     PieChart,
-    Settings2,
-    SquareTerminal,
     Grid3x3,
     UserCircle,
     Building2,
-    Users,
     Plug,
-    FileCheck,
-    DollarSign,
     FileText,
 } from "lucide-react"
 
 import { NavMain } from "@/app/components/nav-main"
-import { NavProjects } from "@/app/components/nav-projects"
 import { NavUser } from "@/app/components/nav-user"
-import { TeamSwitcher } from "@/app/components/team-switcher"
 import { SidebarNotifications } from "@/app/components/sidebar-notifications"
 import {
     Sidebar,
@@ -54,7 +40,7 @@ type NavItem = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-    const { userRole: userScopedRole, isLoading } = useRoleAccess();
+    const { userRole: userScopedRole } = useRoleAccess();
     const { data: session } = useSession();
     const [isMounted, setIsMounted] = React.useState(false);
 
@@ -73,11 +59,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 title: "Home",
                 url: "/dashboard",
             },
-            {
-                icon: PieChart,
-                title: "Statistics",
-                url: "/dashboard/statistics",
-            },
+            ...(safeUserRole === "superadmin" || safeUserRole === "national"
+                ? [{
+                    icon: PieChart,
+                    title: "Statistics",
+                    url: "/dashboard/statistics",
+                }]
+                : []),
             {
                 icon: UserCircle,
                 title: "People Management",
@@ -98,29 +86,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         });
                     }
 
-                    // Graduates - Visible to Region level and above (plus graduate group leaders)
+                    // Graduates - Visible to national/superadmin and graduate group leaders
                     if (
                         safeUserRole === "superadmin" ||
                         safeUserRole === "national" ||
-                        safeUserRole === "region" ||
                         safeUserRole === "graduatesmallgroup"
                     ) {
                         baseItems.push({
                             title: "Graduates",
                             url: "/links/people/graduates",
-                            pro: false,
-                        });
-                    }
-
-                    // Only add Bulk Import for specific roles
-                    if (
-                        safeUserRole === "superadmin" ||
-                        safeUserRole === "region" ||
-                        safeUserRole === "university"
-                    ) {
-                        baseItems.push({
-                            title: "Bulk Import",
-                            url: "/links/people/import",
                             pro: false,
                         });
                     }
@@ -183,11 +157,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         pro: false,
                                     },
                                     {
-                                        title: "Graduate Groups",
-                                        url: "/links/organization/graduate-small-groups",
-                                        pro: false,
-                                    },
-                                    {
                                         title: "Properties",
                                         url: "/links/organization/properties",
                                         pro: false,
@@ -216,7 +185,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 : []),
 
             // Strategic Reporting - visible to staff and admins
-            ...(safeUserRole === "superadmin" || safeUserRole === "national" || safeUserRole === "region" || safeUserRole === "university" || safeUserRole === "smallgroup" || safeUserRole === "graduatesmallgroup"
+            ...(safeUserRole === "superadmin" || safeUserRole === "national" || safeUserRole === "region"
                 ? [{
                     icon: FileText,
                     title: "Strategic Reporting",
@@ -230,8 +199,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             pro: false,
                         });
 
-                        // Show submitted reports to admins
-                        if (safeUserRole === "superadmin" || safeUserRole === "national") {
+                        // Show submitted reports to admins and region leads
+                        if (safeUserRole === "superadmin" || safeUserRole === "national" || safeUserRole === "region") {
                             baseItems.push({
                                 title: "Submitted Reports",
                                 url: "/links/admin/reports",
@@ -253,7 +222,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 }]
                 : []),
 
-            ...(safeUserRole === "superadmin" || safeUserRole === "national" || safeUserRole === "region" || safeUserRole === "smallgroup" || safeUserRole === "university" || safeUserRole === "graduatesmallgroup"
+            ...(safeUserRole === "superadmin" || safeUserRole === "national" || safeUserRole === "region" || safeUserRole === "university"
                 ? [{
                     icon: Plug,
                     title: "System Administration",
@@ -267,20 +236,33 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 url: "/links/admin/user-management",
                                 pro: false,
                             });
+                        }
 
-                            // Public Invitations Management
+                        // Invitations are visible to superadmin, region, and university roles
+                        if (
+                            safeUserRole === "superadmin" ||
+                            safeUserRole === "region" ||
+                            safeUserRole === "university"
+                        ) {
                             baseItems.push({
                                 title: "Invitations",
                                 url: "/links/admin/invitations",
                                 pro: false,
                             });
                         }
-                        // Add Registrations (Member Reviews)
-                        baseItems.push({
-                            title: "Registrations",
-                            url: "/links/admin/registrations",
-                            pro: false,
-                        });
+                        // Registrations are visible to admin/leadership scopes
+                        if (
+                            safeUserRole === "superadmin" ||
+                            safeUserRole === "national" ||
+                            safeUserRole === "region" ||
+                            safeUserRole === "university"
+                        ) {
+                            baseItems.push({
+                                title: "Registrations",
+                                url: "/links/admin/registrations",
+                                pro: false,
+                            });
+                        }
 
                         // Financial Support - for national and superadmin only
                         if (safeUserRole === "superadmin" || safeUserRole === "national") {

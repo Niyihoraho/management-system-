@@ -1,12 +1,37 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrismaClient } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { getUserScope } from '@/lib/rls';
+import { cacheGet, cacheSet } from '@/lib/cache';
+
+type FinancialSupportStats = {
+    total: number;
+    byStatus: Record<'want_to_support' | 'already_supporting' | 'later', number>;
+    byFrequency: Record<'monthly' | 'half_year' | 'full_year', number>;
+    activeRecords: number;
+};
 
 export async function GET(req: Request) {
     try {
         const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const userScope = await getUserScope();
+        if (!userScope || !['superadmin', 'national'].includes(userScope.scope)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const preferPrimaryRead = req.headers.get('x-read-after-write') === '1';
+        const db = getPrismaClient('read', { preferPrimary: preferPrimaryRead });
+
+        const cacheKey = `financial-support:stats:${userScope.userId}:${userScope.scope}`;
+        if (!preferPrimaryRead) {
+            const cached = await cacheGet<FinancialSupportStats>(cacheKey);
+            if (cached) {
+                return NextResponse.json(cached);
+            }
         }
 
         const [
@@ -19,14 +44,14 @@ export async function GET(req: Request) {
             yearlySupporters,
             activeSupporters
         ] = await Promise.all([
-            prisma.financialsupport.count(),
-            prisma.financialsupport.count({ where: { supportStatus: 'want_to_support' } }),
-            prisma.financialsupport.count({ where: { supportStatus: 'already_supporting' } }),
-            prisma.financialsupport.count({ where: { supportStatus: 'later' } }),
-            prisma.financialsupport.count({ where: { supportFrequency: 'monthly' } }),
-            prisma.financialsupport.count({ where: { supportFrequency: 'half_year' } }),
-            prisma.financialsupport.count({ where: { supportFrequency: 'full_year' } }),
-            prisma.financialsupport.count({ where: { status: 'active' } })
+            db.financialsupport.count(),
+            db.financialsupport.count({ where: { supportStatus: 'want_to_support' } }),
+            db.financialsupport.count({ where: { supportStatus: 'already_supporting' } }),
+            db.financialsupport.count({ where: { supportStatus: 'later' } }),
+            db.financialsupport.count({ where: { supportFrequency: 'monthly' } }),
+            db.financialsupport.count({ where: { supportFrequency: 'half_year' } }),
+            db.financialsupport.count({ where: { supportFrequency: 'full_year' } }),
+            db.financialsupport.count({ where: { status: 'active' } })
         ]);
 
         const stats = {
@@ -43,6 +68,10 @@ export async function GET(req: Request) {
             },
             activeRecords: activeSupporters
         };
+
+        if (!preferPrimaryRead) {
+            await cacheSet(cacheKey, stats, { ttlSeconds: 120 });
+        }
 
         return NextResponse.json(stats);
 
