@@ -4,29 +4,23 @@ type CacheSetOptions = {
   ttlSeconds?: number
 }
 
-type CacheBackend = {
-  get(key: string): Promise<string | null>
-  set(key: string, value: string, options?: CacheSetOptions): Promise<void>
-  del(key: string): Promise<void>
-}
-
 const upstashUrl = process.env.UPSTASH_REDIS_REST_URL
 const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN
 
-// ── Upstash REST backend (serverless-safe, no native modules) ────────────────
-const createUpstashBackend = (url: string, token: string): CacheBackend => {
+// ── Upstash REST backend ─────────────────────────────────────────────────────
+// Upstash SDK auto-serializes/deserializes values — do NOT double-stringify
+const createUpstashBackend = (url: string, token: string) => {
   const client = new UpstashRedis({ url, token })
 
   return {
-    async get(key) {
+    async get<T>(key: string): Promise<T | null> {
       try {
-        const value = await client.get<string>(key)
-        return value ?? null
+        return await client.get<T>(key)
       } catch {
         return null
       }
     },
-    async set(key, value, options) {
+    async set<T>(key: string, value: T, options?: CacheSetOptions): Promise<void> {
       try {
         if (options?.ttlSeconds && options.ttlSeconds > 0) {
           await client.set(key, value, { ex: options.ttlSeconds })
@@ -37,7 +31,7 @@ const createUpstashBackend = (url: string, token: string): CacheBackend => {
         // silently fail — cache is best-effort
       }
     },
-    async del(key) {
+    async del(key: string): Promise<void> {
       try {
         if (key.includes('*')) {
           const keys = await client.keys(key)
@@ -54,9 +48,9 @@ const createUpstashBackend = (url: string, token: string): CacheBackend => {
   }
 }
 
-// ── In-memory backend (fallback — resets on restart) ────────────────────────
-const createInMemoryBackend = (): CacheBackend => {
-  type Entry = { value: string; expiresAt?: number }
+// ── In-memory backend (fallback) ─────────────────────────────────────────────
+const createInMemoryBackend = () => {
+  type Entry = { value: unknown; expiresAt?: number }
   const store = new Map<string, Entry>()
 
   const sweep = () => {
@@ -67,7 +61,7 @@ const createInMemoryBackend = (): CacheBackend => {
   }
 
   return {
-    async get(key) {
+    async get<T>(key: string): Promise<T | null> {
       sweep()
       const entry = store.get(key)
       if (!entry) return null
@@ -75,15 +69,15 @@ const createInMemoryBackend = (): CacheBackend => {
         store.delete(key)
         return null
       }
-      return entry.value
+      return entry.value as T
     },
-    async set(key, value, options) {
+    async set<T>(key: string, value: T, options?: CacheSetOptions): Promise<void> {
       const expiresAt = options?.ttlSeconds
         ? Date.now() + options.ttlSeconds * 1000
         : undefined
       store.set(key, { value, expiresAt })
     },
-    async del(key) {
+    async del(key: string): Promise<void> {
       if (key.includes('*')) {
         const pattern = new RegExp('^' + key.replace(/\*/g, '.*') + '$')
         for (const k of store.keys()) {
@@ -97,19 +91,15 @@ const createInMemoryBackend = (): CacheBackend => {
 }
 
 // ── Select backend ───────────────────────────────────────────────────────────
-const backend: CacheBackend =
+const backend =
   upstashUrl && upstashToken
-    ? createUpstashBackend(upstashUrl, upstashToken) // Upstash REST
-    : createInMemoryBackend()                         // fallback
+    ? createUpstashBackend(upstashUrl, upstashToken)
+    : createInMemoryBackend()
 
-const serialize = (value: unknown) => JSON.stringify(value)
-const deserialize = <T>(value: string | null): T | null =>
-  value ? (JSON.parse(value) as T) : null
-
+// ── Public API ───────────────────────────────────────────────────────────────
 export const cacheGet = async <T>(key: string): Promise<T | null> => {
   if (!key) return null
-  const hit = await backend.get(key)
-  return deserialize<T>(hit)
+  return backend.get<T>(key)
 }
 
 export const cacheSet = async <T>(
@@ -118,7 +108,7 @@ export const cacheSet = async <T>(
   options?: CacheSetOptions
 ) => {
   if (!key) return
-  await backend.set(key, serialize(value), options)
+  await backend.set(key, value, options)
 }
 
 export const cacheDel = async (key: string | string[]) => {
@@ -138,7 +128,7 @@ export const withCache = async <T>(
 ): Promise<T> => {
   if (!preferPrimary) {
     const cached = await cacheGet<T>(key)
-    if (cached) return cached
+    if (cached !== null) return cached
   }
   const value = await loader()
   if (!preferPrimary) await cacheSet(key, value, options)
