@@ -77,9 +77,17 @@ export function AddGraduateSmallGroupModal({ children, onGraduateSmallGroupAdded
         try {
             const response = await fetch('/api/provinces')
             const data = await response.json()
-            setProvinces(data)
+            if (Array.isArray(data)) {
+                setProvinces(data)
+            } else if (Array.isArray(data?.provinces)) {
+                setProvinces(data.provinces)
+            } else {
+                console.error('Unexpected provinces payload:', data)
+                setProvinces([])
+            }
         } catch (error) {
             console.error('Error fetching provinces:', error)
+            setProvinces([])
         }
     }
 
@@ -229,8 +237,8 @@ export function AddGraduateSmallGroupModal({ children, onGraduateSmallGroupAdded
                                                     <SelectValue placeholder="Select a province" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {provinces.map((province) => (
-                                                        <SelectItem key={province.id} value={province.id}>
+                                                    {(Array.isArray(provinces) ? provinces : []).map((province) => (
+                                                        <SelectItem key={province.id} value={province.id.toString()}>
                                                             {province.name}
                                                         </SelectItem>
                                                     ))}

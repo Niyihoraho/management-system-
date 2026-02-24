@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Search, RefreshCw, Plus, Edit, Trash2, Building2, AlertCircle, MoreVertical, Package, Calendar } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
@@ -51,6 +52,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
 interface GBUData {
     id: number;
@@ -77,6 +79,8 @@ interface University {
 }
 
 export default function GBUDataPage() {
+    const router = useRouter();
+    const { userRole, isLoading: roleLoading } = useRoleAccess();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRegion, setSelectedRegion] = useState<string>("all");
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -130,8 +134,15 @@ export default function GBUDataPage() {
     };
 
     useEffect(() => {
+        if (roleLoading) return;
+
+        if (!userRole || !['superadmin', 'national', 'region'].includes(userRole)) {
+            router.replace('/dashboard');
+            return;
+        }
+
         fetchData();
-    }, [selectedYear, selectedRegion]); // Refetch when filters change
+    }, [roleLoading, router, selectedYear, selectedRegion, userRole]); // Refetch when filters change
 
     // Create Handler
     const handleCreate = async (formData: any) => {

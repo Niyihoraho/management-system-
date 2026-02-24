@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, getPrismaClient } from "@/lib/prisma";
-import { getUserScope, generateRLSConditions } from "@/lib/rls";
+import { getUserScope, getTableRLSConditions } from "@/lib/rls";
 import { cacheGet, cacheSet, cacheDel } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
             }
 
-            const cacheKeyU = `universities:${requestedUniversityId}`;
+            const cacheKeyU = `universities:${userScope.userId}:${requestedUniversityId}`;
             if (!preferPrimary) {
                 const cached = await cacheGet<any>(cacheKeyU);
                 if (cached) return NextResponse.json(cached);
@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(university, { status: 200 });
         }
 
-        // Build where clause with RLS conditions
-        const rlsConditions = generateRLSConditions(userScope);
+        // Build where clause with table-specific RLS conditions
+        const rlsConditions = getTableRLSConditions(userScope, 'university');
         const where: Record<string, unknown> = { ...rlsConditions };
 
         // Apply region filter if provided (but it must be within user's scope)
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
             where.regionId = requestedRegionId;
         }
 
-        const cacheKey = `universities:list:${userScope.scope}:${userScope.universityId ?? userScope.regionId ?? 'all'}:${regionId ?? ''}`;
+        const cacheKey = `universities:list:${userScope.userId}:${userScope.scope}:${userScope.universityId ?? userScope.regionId ?? 'all'}:${regionId ?? ''}`;
         if (!preferPrimary) {
             const cached = await cacheGet<any[]>(cacheKey);
             if (cached) return NextResponse.json(cached);
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
             }
         });
 
-        await cacheDel(`universities:${university.id}`);
+        await cacheDel(`universities:*:${university.id}`);
         await cacheDel('universities:list:*');
         await cacheDel('stats:*');
         return NextResponse.json(university, { status: 201 });
@@ -308,7 +308,7 @@ export async function PUT(request: NextRequest) {
             });
         });
 
-        await cacheDel(`universities:${Number(universityId)}`);
+        await cacheDel(`universities:*:${Number(universityId)}`);
         await cacheDel('universities:list:*');
         await cacheDel('stats:*');
         return NextResponse.json(updatedUniversity, { status: 200 });
@@ -358,7 +358,7 @@ export async function DELETE(request: NextRequest) {
             where: { id: Number(universityId) }
         });
 
-        await cacheDel(`universities:${Number(universityId)}`);
+        await cacheDel(`universities:*:${Number(universityId)}`);
         await cacheDel('universities:list:*');
         await cacheDel('stats:*');
         return NextResponse.json(

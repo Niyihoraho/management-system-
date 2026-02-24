@@ -132,7 +132,7 @@ export function UserRoleForm({ userId, userName, onSuccess, onCancel }: UserRole
       // Use the new endpoint params. Assuming regionId maps to provinceId for now as per refactor
       const response = await fetch(`/api/graduate-small-groups?provinceId=${provinceId}`);
       const data = await response.json();
-      setGraduateGroups(data);
+      setGraduateGroups(Array.isArray(data) ? data : (data?.graduateGroups || []));
     } catch (error) {
       console.error('Error fetching graduate groups:', error);
     }

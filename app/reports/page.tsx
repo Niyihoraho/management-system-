@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, RefreshCw, Plus } from "lucide-react";
+import { FileText, RefreshCw } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
     Breadcrumb,
@@ -18,6 +18,7 @@ import {
     SidebarProvider,
     SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
 type Pillar = {
     id: number;
@@ -27,6 +28,7 @@ type Pillar = {
 
 export default function ReportsDashboard() {
     const router = useRouter();
+    const { userRole, isLoading: roleLoading } = useRoleAccess();
     const [pillars, setPillars] = useState<Pillar[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -59,8 +61,17 @@ export default function ReportsDashboard() {
     };
 
     useEffect(() => {
+        if (roleLoading) {
+            return;
+        }
+
+        if (!userRole || !["superadmin", "national", "region"].includes(userRole)) {
+            router.replace("/dashboard");
+            return;
+        }
+
         fetchPillars();
-    }, []);
+    }, [roleLoading, router, userRole]);
 
     return (
         <SidebarProvider>

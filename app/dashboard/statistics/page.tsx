@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
     SidebarInset,
@@ -22,8 +23,11 @@ import { PillarsMatrix } from "@/components/statistics/pillars-matrix";
 import { BarChart3, RefreshCw, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
 export default function StatisticsPage() {
+    const router = useRouter();
+    const { userRole, isLoading: roleLoading } = useRoleAccess();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<any>(null);
@@ -45,8 +49,15 @@ export default function StatisticsPage() {
     };
 
     useEffect(() => {
+        if (roleLoading) return;
+
+        if (!userRole || !["superadmin", "national"].includes(userRole)) {
+            router.replace("/dashboard");
+            return;
+        }
+
         fetchData();
-    }, []);
+    }, [roleLoading, router, userRole]);
 
     return (
         <SidebarProvider>

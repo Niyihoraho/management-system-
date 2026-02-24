@@ -1,11 +1,42 @@
 import { PrismaClient } from './generated/prisma'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+type GlobalWithPrismaClients = typeof globalThis & {
+  prismaWrite?: PrismaClient
+  prismaRead?: PrismaClient
 }
 
+const globalForPrisma = globalThis as GlobalWithPrismaClients
 
-// export const prisma = globalForPrisma.prisma ?? new PrismaClient()
-export const prisma = globalForPrisma.prisma ?? new PrismaClient()
+const prismaWrite =
+  globalForPrisma.prismaWrite ??
+  new PrismaClient()
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+const readReplicaUrl = process.env.REPLICA_DATABASE_URL ?? process.env.READONLY_DATABASE_URL
+
+const prismaRead =
+  readReplicaUrl
+    ? globalForPrisma.prismaRead ??
+      new PrismaClient({ datasources: { db: { url: readReplicaUrl } } })
+    : prismaWrite
+
+export const prisma = prismaWrite
+export const prismaReplica = prismaRead
+
+type GetPrismaClientOptions = {
+  preferPrimary?: boolean
+}
+
+export const getPrismaClient = (
+  mode: 'read' | 'write' = 'write',
+  options?: GetPrismaClientOptions
+) => {
+  if (mode === 'write' || options?.preferPrimary) {
+    return prisma
+  }
+  return prismaReplica
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prismaWrite = prismaWrite
+  globalForPrisma.prismaRead = prismaRead
+}

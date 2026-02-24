@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
             const requestedSmallGroupId = Number(smallgroupId);
 
             // Apply RLS check for specific small group
-            if (userScope.scope === 'smallgroup' && userScope.smallgroupId !== requestedSmallGroupId) {
+            if (userScope.scope === 'smallgroup' && userScope.smallGroupId !== requestedSmallGroupId) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
             }
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Apply RLS conditions
-        const rlsConditions = getTableRLSConditions(userScope, 'smallgroup');
+        const rlsConditions = getTableRLSConditions(userScope, 'smallGroup');
         const where: Record<string, unknown> = { ...rlsConditions };
 
         // Apply explicit filters if provided (but they must be within user's scope)
@@ -248,7 +248,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Apply RLS checks for update
-        if (userScope.scope === 'smallgroup' && userScope.smallgroupId !== Number(smallgroupId)) {
+        if (userScope.scope === 'smallgroup' && userScope.smallGroupId !== Number(smallgroupId)) {
             return NextResponse.json({ error: "Access denied to update this small group" }, { status: 403 });
         }
         if (userScope.scope === 'university' && userScope.universityId && existingSmallGroup.universityId !== userScope.universityId) {
@@ -369,7 +369,7 @@ export async function DELETE(request: NextRequest) {
 
         // Check if small group is being used by students
         const studentsCount = await prisma.student.count({
-            where: { smallgroupId: Number(smallgroupId) }
+            where: { smallGroupId: Number(smallgroupId) }
         });
 
         if (studentsCount > 0) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
@@ -12,6 +13,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
 interface GraduateSmallGroup {
   id: number;
@@ -21,6 +23,8 @@ interface GraduateSmallGroup {
 }
 
 export default function GraduateSmallGroupsPage() {
+  const router = useRouter();
+  const { userRole, isLoading: roleLoading } = useRoleAccess();
   const [searchTerm, setSearchTerm] = useState('');
   const [graduateSmallGroups, setGraduateSmallGroups] = useState<GraduateSmallGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +47,8 @@ export default function GraduateSmallGroupsPage() {
       setLoading(true);
       setError(null);
       const response = await axios.get('/api/graduate-small-groups');
-      setGraduateSmallGroups(response.data);
+      const data = response.data;
+      setGraduateSmallGroups(Array.isArray(data) ? data : (data?.graduateGroups || []));
     } catch (err) {
       console.error('Error fetching graduate small groups:', err);
       // More specific error handling could go here
@@ -110,8 +115,15 @@ export default function GraduateSmallGroupsPage() {
 
   // Load graduate small groups on component mount
   useEffect(() => {
+    if (roleLoading) return;
+
+    if (!userRole || !['superadmin', 'national'].includes(userRole)) {
+      router.replace('/dashboard');
+      return;
+    }
+
     fetchGraduateSmallGroups();
-  }, []);
+  }, [roleLoading, router, userRole]);
 
   const filteredGraduateSmallGroups = graduateSmallGroups.filter(group => {
     if (!searchTerm) return true;

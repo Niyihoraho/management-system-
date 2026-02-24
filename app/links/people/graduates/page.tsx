@@ -151,9 +151,19 @@ export default function GraduatesPage() {
             console.log('API Response - Groups:', groupsRes.data);
             console.log('API Response - Provinces:', provincesRes.data);
 
-            setGraduates(graduatesRes.data.graduates || []);
-            setGraduateGroups(groupsRes.data || []);
-            setProvinces(provincesRes.data || []);
+            const graduatesData = (Array.isArray(graduatesRes.data)
+                ? graduatesRes.data
+                : graduatesRes.data?.graduates || []) as Graduate[];
+            const graduateGroupsData = (Array.isArray(groupsRes.data)
+                ? groupsRes.data
+                : groupsRes.data?.graduateGroups || []) as GraduateSmallGroup[];
+            const provincesData = (Array.isArray(provincesRes.data)
+                ? provincesRes.data
+                : provincesRes.data?.provinces || []) as { id: string; name: string }[];
+
+            setGraduates(graduatesData);
+            setGraduateGroups(graduateGroupsData);
+            setProvinces(provincesData);
         } catch (err) {
             console.error('Error fetching data:', err);
             setError('Failed to fetch graduates. Please try again.');

@@ -1,13 +1,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserScope, generateRLSConditions } from "@/lib/rls";
+import { getUserScope } from "@/lib/rls";
+import { Prisma } from "@/lib/generated/prisma";
 
 export async function GET(request: NextRequest) {
     try {
         const userScope = await getUserScope();
         if (!userScope) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        if (!["superadmin", "national"].includes(userScope.scope)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -40,7 +45,7 @@ export async function GET(request: NextRequest) {
             }, { status: 200 });
         }
 
-        let where: any = {};
+        const where: Prisma.graduatesmallgroupWhereInput = {};
 
         // Apply RLS conditions (Simplified for now as RLS might still return regionId)
         // const rlsConditions = generateRLSConditions(userScope);
@@ -66,7 +71,7 @@ export async function GET(request: NextRequest) {
             } : null
         }));
 
-        return NextResponse.json(serialized, { status: 200 });
+        return NextResponse.json({ graduateGroups: serialized }, { status: 200 });
     } catch (error) {
         console.error("Error fetching graduate small groups:", error);
         return NextResponse.json({ error: 'Failed to fetch graduate small groups' }, { status: 500 });
@@ -80,9 +85,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // Fix permissions check - allowing generic access for now or keeping restriction
-        if (userScope.scope === 'university' || userScope.scope === 'smallgroup') {
-            return NextResponse.json({ error: "Permission denied" }, { status: 403 });
+        if (!["superadmin", "national"].includes(userScope.scope)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const body = await request.json();
@@ -131,13 +135,22 @@ export async function POST(request: NextRequest) {
     }
 }
 
-export async function PUT(request: NextRequest) {
+export async function PUT(_request: NextRequest) {
     // Simplified PUT
     return NextResponse.json({ error: "Not implemented fully yet" }, { status: 501 });
 }
 
 export async function DELETE(request: NextRequest) {
     try {
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        if (!["superadmin", "national"].includes(userScope.scope)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
         if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
@@ -147,7 +160,7 @@ export async function DELETE(request: NextRequest) {
         });
 
         return NextResponse.json({ message: "Deleted" }, { status: 200 });
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
     }
 }

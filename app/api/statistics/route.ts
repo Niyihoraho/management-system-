@@ -1,19 +1,38 @@
 
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrismaClient } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getUserScope } from "@/lib/rls";
+import { cacheGet, cacheSet } from "@/lib/cache";
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
         const session = await auth();
         if (!session?.user) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        // specific permissions check if needed, for now assuming authenticated users can view stats
-        // or restrict to admin/national/region roles
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return new NextResponse("Forbidden", { status: 403 });
+        }
 
-        const regions = await prisma.region.findMany({
+        if (!["superadmin", "national"].includes(userScope.scope)) {
+            return new NextResponse("Forbidden", { status: 403 });
+        }
+
+        const preferPrimaryRead = req.headers.get('x-read-after-write') === '1';
+        const db = getPrismaClient('read', { preferPrimary: preferPrimaryRead });
+
+        const cacheKey = `stats:${session.user.id ?? 'anonymous'}`;
+        if (!preferPrimaryRead) {
+            const cached = await cacheGet<{ pillars: any[]; stats: any[] }>(cacheKey);
+            if (cached) {
+                return NextResponse.json(cached);
+            }
+        }
+
+        const regions = await db.region.findMany({
             include: {
                 university: {
                     include: {
@@ -37,7 +56,7 @@ export async function GET() {
             }
         }) as any[];
 
-        const pillars = await prisma.strategic_priority.findMany() as any[];
+        const pillars = await db.strategic_priority.findMany() as any[];
 
         const stats = regions.map(region => {
             // Aggregate GBU Data
@@ -144,7 +163,13 @@ export async function GET() {
             };
         });
 
-        return NextResponse.json({ pillars, stats });
+        const payload = { pillars, stats };
+
+        if (!preferPrimaryRead) {
+            await cacheSet(cacheKey, payload, { ttlSeconds: 300 });
+        }
+
+        return NextResponse.json(payload);
 
     } catch (error) {
         console.error("[STATISTICS_GET]", error);

@@ -1,14 +1,25 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getUserScope } from "@/lib/rls";
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
     const session = await auth();
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const activityId = Number(params.id);
+    const userScope = await getUserScope();
+    if (!userScope) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!["superadmin", "national", "region"].includes(userScope.scope)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = await context.params;
+    const activityId = Number(id);
     if (Number.isNaN(activityId)) {
         return NextResponse.json({ error: "Invalid activity id" }, { status: 400 });
     }
@@ -50,6 +61,32 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     try {
+        const existing = await prisma.activity_log.findUnique({
+            where: { id: activityId },
+            select: {
+                id: true,
+                report_submission: {
+                    select: {
+                        regionId: true,
+                        userId: true,
+                    },
+                },
+            },
+        });
+
+        if (!existing) {
+            return NextResponse.json({ error: "Activity not found" }, { status: 404 });
+        }
+
+        if (
+            userScope.scope === "region" &&
+            userScope.regionId &&
+            existing.report_submission.regionId !== userScope.regionId &&
+            existing.report_submission.userId !== session.user.id
+        ) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+
         const updated = await prisma.activity_log.update({
             where: { id: activityId },
             data,
@@ -89,13 +126,23 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
     const session = await auth();
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const activityId = Number(params.id);
+    const userScope = await getUserScope();
+    if (!userScope) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!["superadmin", "national"].includes(userScope.scope)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = await context.params;
+    const activityId = Number(id);
     if (Number.isNaN(activityId)) {
         return NextResponse.json({ error: "Invalid activity id" }, { status: 400 });
     }

@@ -3,6 +3,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUserSchema } from "../validation/user";
 import bcrypt from "bcryptjs";
 
+type UserRoleForResponse = {
+    id: number;
+    scope: string;
+    region?: { name: string } | null;
+    university?: { name: string } | null;
+    smallGroup?: { name: string } | null;
+    graduateSmallGroup?: { name: string } | null;
+};
+
+const mapUserRolesForResponse = (roles?: UserRoleForResponse[]) => {
+    return (roles || []).map((role) => ({
+        id: role.id,
+        scope: role.scope,
+        region: role.region ? { name: role.region.name } : null,
+        university: role.university ? { name: role.university.name } : null,
+        smallgroup: role.smallGroup ? { name: role.smallGroup.name } : null,
+        graduateSmallGroup: role.graduateSmallGroup ? { name: role.graduateSmallGroup.name } : null,
+    }));
+};
+
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -69,8 +89,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
-        const page = parseInt(searchParams.get("page") || "1");
-        const limit = parseInt(searchParams.get("limit") || "10");
+        const pageParam = parseInt(searchParams.get("page") || "1");
+        const limitParam = parseInt(searchParams.get("limit") || "10");
+        const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+        const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10;
         const search = searchParams.get("search") || "";
 
         // If ID is provided, return specific user
@@ -93,8 +115,11 @@ export async function GET(request: NextRequest) {
             }
 
             // Remove password from response
-            const { password: _, ...userWithoutPassword } = user;
-            return NextResponse.json(userWithoutPassword, { status: 200 });
+            const { password: _, userRole, ...userWithoutPassword } = user;
+            return NextResponse.json({
+                ...userWithoutPassword,
+                userrole: mapUserRolesForResponse(userRole as UserRoleForResponse[]),
+            }, { status: 200 });
         }
 
         // Build search conditions
@@ -111,8 +136,11 @@ export async function GET(request: NextRequest) {
         const skip = (page - 1) * limit;
 
         // Fetch users with pagination
-        const [users, totalCount] = await Promise.all([
-            prisma.user.findMany({
+        let users: Array<Record<string, unknown>> = [];
+        const totalCount = await prisma.user.count({ where });
+
+        try {
+            users = await prisma.user.findMany({
                 where,
                 include: {
                     userRole: {
@@ -127,12 +155,30 @@ export async function GET(request: NextRequest) {
                 skip,
                 take: limit,
                 orderBy: { createdAt: 'desc' }
-            }),
-            prisma.user.count({ where })
-        ]);
+            }) as Array<Record<string, unknown>>;
+        } catch (rolesError) {
+            console.warn("Falling back to user list without roles:", rolesError);
+            users = await prisma.user.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' }
+            }) as Array<Record<string, unknown>>;
+        }
 
         // Remove passwords from response
-        const usersWithoutPasswords = users.map(({ password: _, ...user }) => user);
+        const usersWithoutPasswords = users.map((user) => {
+            const { password: _, userRole, ...rest } = user as {
+                password?: string;
+                userRole?: UserRoleForResponse[];
+                [key: string]: unknown;
+            };
+
+            return {
+                ...rest,
+                userrole: mapUserRolesForResponse(userRole),
+            };
+        });
 
         return NextResponse.json({
             users: usersWithoutPasswords,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,11 @@ export default function GraduateForm({
   const [formData, setFormData] = useState<GraduateFormData>(initialFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof GraduateFormData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const provinceOptions = useMemo<{ id: string; name: string }[]>(() => {
+    if (Array.isArray(provinces)) return provinces;
+    if (Array.isArray((provinces as any)?.provinces)) return (provinces as any).provinces;
+    return [];
+  }, [provinces]);
 
   useEffect(() => {
     if (isOpen) {
@@ -321,12 +326,12 @@ export default function GraduateForm({
                         <SelectTrigger className="h-11">
                           <SelectValue placeholder="Select province" />
                         </SelectTrigger>
-                        <SelectContent>
-                          {provinces.map((province) => (
-                            <SelectItem key={province.id} value={province.id.toString()}>
-                              {province.name}
-                            </SelectItem>
-                          ))}
+                     <SelectContent>
+                           {provinceOptions.map((province) => (
+                             <SelectItem key={province.id} value={province.id.toString()}>
+                               {province.name}
+                             </SelectItem>
+                           ))}
                         </SelectContent>
                       </Select>
                     </div>

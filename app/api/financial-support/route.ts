@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma, getPrismaClient } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { getUserScope } from '@/lib/rls';
 import { cacheGet, cacheSet, cacheDel } from '@/lib/cache';
 
 export async function GET(req: Request) {
@@ -8,6 +9,11 @@ export async function GET(req: Request) {
         const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const userScope = await getUserScope();
+        if (!userScope || !['superadmin', 'national'].includes(userScope.scope)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const preferPrimary = (req as any).headers?.get?.('x-read-after-write') === '1';
@@ -20,7 +26,7 @@ export async function GET(req: Request) {
         const skip = (page - 1) * limit;
 
         // Cache only when no search/filter (paginated list with filters = skip cache)
-        const cacheKey = `financial-support:${status ?? 'all'}:${provinceId ?? 'all'}:p${page}`;
+        const cacheKey = `financial-support:${userScope.userId}:${userScope.scope}:${status ?? 'all'}:${provinceId ?? 'all'}:p${page}`;
         if (!preferPrimary && !search) {
             const cached = await cacheGet<any>(cacheKey);
             if (cached) return NextResponse.json(cached);
@@ -85,6 +91,11 @@ export async function POST(req: Request) {
         const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const userScope = await getUserScope();
+        if (!userScope || !['superadmin', 'national'].includes(userScope.scope)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const body = await req.json();

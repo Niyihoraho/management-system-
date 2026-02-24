@@ -110,6 +110,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        // Region, university, and small group users are not allowed to view graduates
+        if (["region", "university", "smallgroup"].includes(userScope.scope)) {
+            return NextResponse.json(
+                { error: "You do not have permission to view graduates" },
+                { status: 403 }
+            );
+        }
+
         const preferPrimary = (request as any).headers?.get?.('x-read-after-write') === '1';
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search");
@@ -119,7 +127,7 @@ export async function GET(request: NextRequest) {
         const id = searchParams.get("id");
 
         if (id) {
-            const cacheKeyG = `graduates:${id}`;
+            const cacheKeyG = `graduates:${userScope.userId}:${id}`;
             if (!preferPrimary) {
                 const cached = await cacheGet<any>(cacheKeyG);
                 if (cached) return NextResponse.json(cached);
@@ -192,7 +200,7 @@ export async function GET(request: NextRequest) {
         }
 
         const scope = userScope.scope;
-        const cacheKey = `graduates:list:${scope}:${graduateGroupId ?? 'all'}:${status ?? 'all'}:${pillar ?? 'all'}:${searchParams.get('provinceId') ?? 'all'}`;
+        const cacheKey = `graduates:list:${userScope.userId}:${scope}:${graduateGroupId ?? 'all'}:${status ?? 'all'}:${pillar ?? 'all'}:${searchParams.get('provinceId') ?? 'all'}`;
         if (!preferPrimary && !search) {
             const cached = await cacheGet<any[]>(cacheKey);
             if (cached) return NextResponse.json(cached);
@@ -316,7 +324,7 @@ export async function PUT(request: NextRequest) {
             } : null
         };
 
-        await cacheDel(`graduates:${Number(id)}`);
+        await cacheDel(`graduates:*:${Number(id)}`);
         await cacheDel('graduates:list:*');
         await cacheDel('stats:*');
         return NextResponse.json(serializedUpdatedGraduate);
@@ -382,7 +390,7 @@ export async function DELETE(request: NextRequest) {
             where: { id: Number(id) }
         });
 
-        await cacheDel(`graduates:${Number(id)}`);
+        await cacheDel(`graduates:*:${Number(id)}`);
         await cacheDel('graduates:list:*');
         await cacheDel('stats:*');
         return NextResponse.json(

@@ -48,7 +48,7 @@ export function AddGraduateSmallGroupModal({ children, onGraduateSmallGroupAdded
         try {
             const response = await fetch('/api/provinces')
             const data = await response.json()
-            setProvinces(Array.isArray(data) ? data : [])
+            setProvinces(Array.isArray(data) ? data : (data?.provinces || []))
         } catch (error) {
             console.error('Error fetching provinces:', error)
         }
