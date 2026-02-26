@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Search, RefreshCw, Plus, Edit, Trash2, Building2, AlertCircle, MoreVertical, Package, Calendar, MapPin, ChevronDown, ChevronRight } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
-import GBUDataForm from "@/app/components/gbu-data-form";
+import CampusDataForm from "@/app/components/campus-data-form";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -54,16 +54,14 @@ import {
 } from "@/components/ui/select";
 import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
-interface GBUData {
+interface CampusData {
     id: number;
     universityId: number;
     year: number;
-    activeMembers: number;
-    cells: number;
-    discipleshipGroups: number;
-    studentsInDiscipleship: number;
-    joinedThisYear: number;
-    savedStudents: number;
+    studentsCount: number;
+    faculties: string;
+    associations: string;
+    cults: string;
     university: { name: string; region: { id: number; name: string } };
     updatedAt: string;
 }
@@ -80,7 +78,7 @@ interface University {
 
 interface GroupedData {
     region: { id: number; name: string };
-    universities: GBUData[];
+    universities: CampusData[];
 }
 
 function RegionRowGroup({
@@ -91,8 +89,8 @@ function RegionRowGroup({
 }: {
     regionGroup: GroupedData;
     canManageRecords: boolean;
-    onEdit: (item: GBUData) => void;
-    onDelete: (item: GBUData) => void;
+    onEdit: (item: CampusData) => void;
+    onDelete: (item: CampusData) => void;
 }) {
     const [isOpen, setIsOpen] = useState(true);
 
@@ -101,7 +99,7 @@ function RegionRowGroup({
             <TableRow
                 className="group transition-colors hover:bg-muted/30 bg-muted/10"
             >
-                <TableCell className="font-medium" colSpan={canManageRecords ? 9 : 8}>
+                <TableCell className="font-medium" colSpan={canManageRecords ? 7 : 6}>
                     <div className="flex items-center gap-2">
                         <Button
                             variant="ghost"
@@ -113,7 +111,7 @@ function RegionRowGroup({
                         </Button>
                         <MapPin className="h-4 w-4 text-primary/70" />
                         <span>{regionGroup.region.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">({regionGroup.universities.length} GBUs)</span>
+                        <span className="text-xs text-muted-foreground ml-2">({regionGroup.universities.length} Campuses)</span>
                     </div>
                 </TableCell>
             </TableRow>
@@ -136,12 +134,22 @@ function RegionRowGroup({
                             {item.year}
                         </span>
                     </TableCell>
-                    <TableCell className="text-center">{item.activeMembers.toLocaleString()}</TableCell>
-                    <TableCell className="text-center">{item.cells.toLocaleString()}</TableCell>
-                    <TableCell className="text-center">{item.discipleshipGroups.toLocaleString()}</TableCell>
-                    <TableCell className="text-center">{item.studentsInDiscipleship.toLocaleString()}</TableCell>
-                    <TableCell className="text-center font-bold text-primary">{item.joinedThisYear.toLocaleString()}</TableCell>
-                    <TableCell className="text-center">{item.savedStudents.toLocaleString()}</TableCell>
+                    <TableCell className="text-center font-medium">{item.studentsCount.toLocaleString()}</TableCell>
+                    <TableCell>
+                        <div className="line-clamp-2 max-w-[200px] text-xs text-muted-foreground" title={item.faculties}>
+                            {item.faculties || '-'}
+                        </div>
+                    </TableCell>
+                    <TableCell>
+                        <div className="line-clamp-2 max-w-[200px] text-xs text-muted-foreground" title={item.associations}>
+                            {item.associations || '-'}
+                        </div>
+                    </TableCell>
+                    <TableCell>
+                        <div className="line-clamp-2 max-w-[200px] text-xs text-muted-foreground" title={item.cults}>
+                            {item.cults || '-'}
+                        </div>
+                    </TableCell>
                     {canManageRecords && (
                         <TableCell className="text-right">
                             <DropdownMenu>
@@ -172,13 +180,13 @@ function RegionRowGroup({
     );
 }
 
-export default function GBUDataPage() {
+export default function CampusDataPage() {
     const router = useRouter();
     const { userRole, userScope, isLoading: roleLoading } = useRoleAccess();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRegion, setSelectedRegion] = useState<string>("all");
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-    const [data, setData] = useState<GBUData[]>([]);
+    const [data, setData] = useState<CampusData[]>([]);
     const [regions, setRegions] = useState<Region[]>([]);
     const [universities, setUniversities] = useState<University[]>([]);
     const [loading, setLoading] = useState(true);
@@ -186,7 +194,7 @@ export default function GBUDataPage() {
 
     // Modal States
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingData, setEditingData] = useState<GBUData | null>(null);
+    const [editingData, setEditingData] = useState<CampusData | null>(null);
     const [deleteModal, setDeleteModal] = useState<{
         isOpen: boolean;
         id: number | null;
@@ -205,7 +213,7 @@ export default function GBUDataPage() {
             setLoading(true);
             setError(null);
 
-            let url = `/api/gbu-data?year=${selectedYear}`;
+            let url = `/api/campus-data?year=${selectedYear}`;
             if (selectedRegion !== "all") {
                 url += `&regionId=${selectedRegion}`;
             }
@@ -245,7 +253,7 @@ export default function GBUDataPage() {
     // Create Handler
     const handleCreate = async (formData: any) => {
         try {
-            await axios.post('/api/gbu-data', formData);
+            await axios.post('/api/campus-data', formData);
             fetchData();
         } catch (err: any) {
             console.error('Error creating data:', err);
@@ -257,7 +265,7 @@ export default function GBUDataPage() {
     const handleUpdate = async (formData: any) => {
         if (!editingData) return;
         try {
-            await axios.put('/api/gbu-data', { ...formData, id: editingData.id });
+            await axios.put('/api/campus-data', { ...formData, id: editingData.id });
             fetchData();
             setEditingData(null);
         } catch (err: any) {
@@ -271,7 +279,7 @@ export default function GBUDataPage() {
         if (!deleteModal.id) return;
         setDeleting(true);
         try {
-            await axios.delete(`/api/gbu-data?id=${deleteModal.id}`);
+            await axios.delete(`/api/campus-data?id=${deleteModal.id}`);
             setData(prev => prev.filter(item => item.id !== deleteModal.id));
             setDeleteModal({ isOpen: false, id: null, name: '' });
         } catch (err) {
@@ -330,7 +338,7 @@ export default function GBUDataPage() {
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator />
                                 <BreadcrumbItem>
-                                    <BreadcrumbPage>General Information</BreadcrumbPage>
+                                    <BreadcrumbPage>Campus Information</BreadcrumbPage>
                                 </BreadcrumbItem>
                             </BreadcrumbList>
                         </Breadcrumb>
@@ -340,8 +348,8 @@ export default function GBUDataPage() {
                     <div className="max-w-7xl mx-auto w-full">
                         {/* Header */}
                         <div className="mb-8">
-                            <h1 className="text-3xl font-bold text-foreground mb-2">General Information</h1>
-                            <p className="text-muted-foreground">Manage GBU statistics and overview across universities</p>
+                            <h1 className="text-3xl font-bold text-foreground mb-2">Campus Information</h1>
+                            <p className="text-muted-foreground">Manage campus student counts, faculties, associations, and cults across universities.</p>
                         </div>
 
                         {/* Search and Actions */}
@@ -446,21 +454,19 @@ export default function GBUDataPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="bg-muted/50">
-                                                <TableHead className="font-semibold w-[300px]">Region / GBU Name</TableHead>
-                                                <TableHead className="font-semibold text-center w-[80px]">Year</TableHead>
-                                                <TableHead className="font-semibold text-center w-[120px]">Active Members</TableHead>
-                                                <TableHead className="font-semibold text-center w-[80px]">Cells</TableHead>
-                                                <TableHead className="font-semibold text-center w-[100px]">D-Groups</TableHead>
-                                                <TableHead className="font-semibold text-center w-[120px]">Students in DG</TableHead>
-                                                <TableHead className="font-semibold text-center w-[130px]">Joined This Year</TableHead>
-                                                <TableHead className="font-semibold text-center w-[100px]">Saved</TableHead>
+                                                <TableHead className="w-[300px] font-semibold">Region / Campus Name</TableHead>
+                                                <TableHead className="font-semibold text-center w-[100px]">Year</TableHead>
+                                                <TableHead className="font-semibold text-center w-[150px]">All Students</TableHead>
+                                                <TableHead className="font-semibold w-[200px]">Faculties</TableHead>
+                                                <TableHead className="font-semibold w-[200px]">Associations</TableHead>
+                                                <TableHead className="font-semibold w-[200px]">Cults</TableHead>
                                                 {canManageRecords && <TableHead className="text-right font-semibold w-[100px]">Actions</TableHead>}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {groupedData.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={canManageRecords ? 9 : 8} className="text-center py-12 text-muted-foreground">
+                                                    <TableCell colSpan={canManageRecords ? 7 : 6} className="text-center py-12 text-muted-foreground">
                                                         <div className="flex flex-col items-center gap-2">
                                                             <Package className="w-12 h-12 text-muted-foreground/50" />
                                                             <p>No records found for {selectedYear} {selectedRegion !== "all" ? "in this region" : ""}.</p>
@@ -488,31 +494,29 @@ export default function GBUDataPage() {
             </SidebarInset>
 
             {/* Create Modal */}
-            <GBUDataForm
+            <CampusDataForm
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
                 onSubmit={handleCreate}
-                title="Add General Information"
+                title="Add Campus Information"
                 universities={universities}
             />
 
             {/* Edit Modal */}
             {editingData && (
-                <GBUDataForm
+                <CampusDataForm
                     isOpen={!!editingData}
                     onClose={() => setEditingData(null)}
                     onSubmit={handleUpdate}
                     initialData={{
                         universityId: editingData.universityId.toString(),
                         year: editingData.year.toString(),
-                        activeMembers: editingData.activeMembers.toString(),
-                        cells: editingData.cells.toString(),
-                        discipleshipGroups: editingData.discipleshipGroups.toString(),
-                        studentsInDiscipleship: editingData.studentsInDiscipleship.toString(),
-                        savedStudents: editingData.savedStudents.toString(),
-                        // joinedThisYear is read-only and calculated, not passed to form for editing
+                        studentsCount: editingData.studentsCount.toString(),
+                        faculties: editingData.faculties,
+                        associations: editingData.associations,
+                        cults: editingData.cults,
                     }}
-                    title="Edit General Information"
+                    title="Edit Campus Information"
                     universities={universities}
                 />
             )}
@@ -523,7 +527,7 @@ export default function GBUDataPage() {
                     <DialogHeader>
                         <DialogTitle>Delete Record</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to delete the GBU data for <strong>{deleteModal.name}</strong>? This action cannot be undone.
+                            Are you sure you want to delete the campus data for <strong>{deleteModal.name}</strong>? This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>

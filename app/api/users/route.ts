@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/lib/generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { createUserSchema } from "../validation/user";
 import bcrypt from "bcryptjs";
@@ -273,9 +274,17 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // Delete user (this will cascade delete related records due to foreign key constraints)
-        await prisma.user.delete({
-            where: { id }
+        await prisma.$transaction(async (tx) => {
+            await tx.userRole.deleteMany({ where: { userId: id } });
+            await tx.session.deleteMany({ where: { userId: id } });
+            await tx.account.deleteMany({ where: { userId: id } });
+            await tx.authenticator.deleteMany({ where: { userId: id } });
+            await tx.auditLog.deleteMany({ where: { userId: id } });
+            await tx.notification.deleteMany({ where: { userId: id } });
+
+            await tx.user.delete({
+                where: { id }
+            });
         });
 
         return NextResponse.json(
@@ -284,6 +293,17 @@ export async function DELETE(request: NextRequest) {
         );
     } catch (error: unknown) {
         console.error("Error deleting user:", error);
+
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+            return NextResponse.json(
+                {
+                    error: "Cannot delete user with linked records",
+                    details: "This user has related records (for example invitations, approvals, registrations, or reports). Remove/reassign those records first.",
+                },
+                { status: 409 }
+            );
+        }
+
         return NextResponse.json(
             { error: "Failed to delete user", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }

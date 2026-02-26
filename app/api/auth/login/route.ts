@@ -77,8 +77,21 @@ export async function POST(request: NextRequest) {
         // Remove password from response
         const { password: _, ...userWithoutPassword } = user;
 
+        const sanitizedUserRoles = userWithoutPassword.userRole?.map((r: any) => ({
+            ...r,
+            graduateSmallGroup: r.graduateSmallGroup ? {
+                ...r.graduateSmallGroup,
+                provinceId: r.graduateSmallGroup.provinceId ? Number(r.graduateSmallGroup.provinceId) : null,
+            } : null
+        }));
+
+        const safeUser = {
+            ...userWithoutPassword,
+            userRole: sanitizedUserRoles
+        };
+
         return NextResponse.json({
-            user: userWithoutPassword,
+            user: safeUser,
             token,
             message: "Login successful"
         }, { status: 200 });

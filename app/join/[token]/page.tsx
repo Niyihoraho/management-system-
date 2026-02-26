@@ -36,8 +36,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
             }
         });
 
-        // Check if valid
-        if (!invitationRecord || !invitationRecord.isActive) {
+        if (!invitationRecord) {
             return (
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
                     <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-sm text-center border border-red-100">
@@ -47,6 +46,22 @@ export default async function JoinPage({ params }: JoinPageProps) {
                         <h1 className="text-xl font-bold text-gray-900 mb-2">Invalid or Expired Link</h1>
                         <p className="text-gray-600">
                             This invitation link is not valid. Please contact your ministry leader for a new link.
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
+        if (!invitationRecord.isActive) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+                    <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-sm text-center border border-orange-100">
+                        <div className="mx-auto h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+                            <AlertCircle className="h-6 w-6 text-orange-600" />
+                        </div>
+                        <h1 className="text-xl font-bold text-gray-900 mb-2">Invitation Inactive</h1>
+                        <p className="text-gray-600">
+                            This invitation link has been disabled. Please contact your ministry leader for an active link.
                         </p>
                     </div>
                 </div>

@@ -22,6 +22,8 @@ export default function RegionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -38,7 +40,11 @@ export default function RegionsPage() {
   // Fetch regions from API
   const fetchRegions = async () => {
     try {
-      setLoading(true);
+      if (initialLoad) {
+        setLoading(true);
+      } else {
+        setIsRefetching(true);
+      }
       setError(null);
       const response = await axios.get('/api/regions');
       setRegions(response.data);
@@ -47,6 +53,8 @@ export default function RegionsPage() {
       setError('Failed to fetch regions. Please try again.');
     } finally {
       setLoading(false);
+      setIsRefetching(false);
+      setInitialLoad(false);
     }
   };
 
@@ -83,17 +91,17 @@ export default function RegionsPage() {
     if (!deleteModal.regionId) return;
 
     setDeleting(true);
-    
+
     try {
       const response = await axios.delete(`/api/regions?id=${deleteModal.regionId}`);
-      
+
       if (response.status === 200) {
         // Remove the region from the local state
         setRegions(prev => prev.filter(region => region.id !== deleteModal.regionId));
-        
+
         // Close the modal
         closeDeleteModal();
-        
+
         // Show success message (you could add a toast notification here)
         console.log('Region deleted successfully');
       }
@@ -112,9 +120,9 @@ export default function RegionsPage() {
 
   const filteredRegions = regions.filter(region => {
     if (!searchTerm) return true;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    
+
     return (
       region.name?.toLowerCase().includes(searchLower)
     );
@@ -155,13 +163,13 @@ export default function RegionsPage() {
                 </div>
 
                 {/* Refresh Button */}
-                <button 
+                <button
                   onClick={fetchRegions}
-                  disabled={loading}
+                  disabled={loading || isRefetching}
                   className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-foreground bg-muted/30 hover:bg-muted/50 border border-border/20 hover:border-border/40 rounded-lg transition-all duration-200 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">{loading ? 'Loading...' : 'Refresh'}</span>
+                  <RefreshCw className={`w-4 h-4 ${(loading || isRefetching) ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{(loading || isRefetching) ? 'Loading...' : 'Refresh'}</span>
                 </button>
               </div>
 
@@ -182,7 +190,7 @@ export default function RegionsPage() {
                   <span className="text-sm font-medium">Error:</span>
                   <span className="text-sm">{error}</span>
                 </div>
-                <button 
+                <button
                   onClick={fetchRegions}
                   className="mt-2 text-sm text-destructive hover:text-destructive/80 underline"
                 >
@@ -217,34 +225,34 @@ export default function RegionsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
-                    {filteredRegions.map((region) => (
-                      <tr key={region.id}>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-foreground">
-                          {region.id}
-                        </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-foreground">
-                          {region.name}
-                        </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
-                          <div className="flex items-center gap-1 sm:gap-2">
-                            <button 
-                              onClick={() => openEditModal(region)}
-                              className="text-muted-foreground hover:text-foreground p-1 rounded" 
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => openDeleteModal(region.id, region.name)}
-                              className="text-destructive hover:text-destructive/80 p-1 rounded" 
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                      {filteredRegions.map((region) => (
+                        <tr key={region.id}>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-foreground">
+                            {region.id}
+                          </td>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-foreground">
+                            {region.name}
+                          </td>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
+                            <div className="flex items-center gap-1 sm:gap-2">
+                              <button
+                                onClick={() => openEditModal(region)}
+                                className="text-muted-foreground hover:text-foreground p-1 rounded"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => openDeleteModal(region.id, region.name)}
+                                className="text-destructive hover:text-destructive/80 p-1 rounded"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -283,7 +291,7 @@ export default function RegionsPage() {
           </div>
         </div>
       </SidebarInset>
-      
+
       {/* Delete Confirmation Modal */}
       <DeleteRegionModal
         isOpen={deleteModal.isOpen}
@@ -292,7 +300,7 @@ export default function RegionsPage() {
         regionName={deleteModal.regionName}
         isLoading={deleting}
       />
-      
+
       {/* Edit Region Modal */}
       <EditRegionModal
         region={editingRegion}

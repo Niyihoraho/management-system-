@@ -313,8 +313,8 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                 <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-300 text-center max-w-md w-full animate-in zoom-in-95 duration-200">
                     <div className="flex flex-col items-center justify-center space-y-4">
-                        <div className="h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center shadow-sm">
-                            <AlertCircle className="h-8 w-8 text-blue-600" />
+                        <div className="h-16 w-16 bg-yellow-100 rounded-full flex items-center justify-center shadow-sm">
+                            <AlertCircle className="h-8 w-8 text-yellow-600" />
                         </div>
                         <h2 className="text-xl font-bold text-slate-900">Registration Status</h2>
                         <p className="text-slate-600 leading-relaxed">
@@ -322,7 +322,7 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
                         </p>
                         <Button
                             onClick={handleDuplicateReset}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-xl mt-4"
+                            className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 rounded-xl mt-4"
                         >
                             OK, I Understand
                         </Button>

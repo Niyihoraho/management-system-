@@ -10,7 +10,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { SidebarNotifications } from "@/components/sidebar-notifications";
 import { LogoutButton } from "@/components/logout-button";
 import { useUserScope } from "@/hooks/use-user-scope";
 import { Shield, Building2, MapPin, Users, GraduationCap, Church } from "lucide-react";
@@ -40,7 +39,7 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
       case 'smallgroup':
         return { title: userScope?.smallGroup?.name || 'Small Group Level', icon: Users, color: 'text-orange-600' };
       case 'alumnismallgroup':
-        return { title: userScope?.alumniGroup?.name || 'Alumni Group Level', icon: Church, color: 'text-indigo-600' };
+        return { title: (userScope as any)?.alumniGroup?.name || 'Alumni Group Level', icon: Church, color: 'text-indigo-600' };
       default:
         return { title: 'User', icon: Users, color: 'text-gray-600' };
     }
@@ -86,7 +85,6 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
             </span>
           </div>
         )}
-        <SidebarNotifications />
         <LogoutButton />
       </div>
     </header>

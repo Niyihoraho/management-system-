@@ -94,8 +94,8 @@ export async function POST(req: Request) {
                 createdBy: session.user.id,
                 regionId: scopedRegionId,
                 updatedAt: new Date(),
-                university: scopedUniversityIds ? {
-                    connect: scopedUniversityIds.map(id => ({ id }))
+                InvitationUniversities: scopedUniversityIds ? {
+                    create: scopedUniversityIds.map(id => ({ A: id }))
                 } : undefined,
             },
         });
@@ -137,8 +137,8 @@ export async function GET(req: Request) {
         if (userScope.scope === 'region' && userScope.regionId) {
             where.regionId = userScope.regionId;
         } else if (userScope.scope === 'university' && userScope.universityId) {
-            where.university = {
-                some: { id: userScope.universityId }
+            where.InvitationUniversities = {
+                some: { A: userScope.universityId }
             };
         }
 
@@ -158,18 +158,18 @@ export async function GET(req: Request) {
                     region: {
                         select: { name: true },
                     },
-                    university: {
-                        select: { name: true },
+                    InvitationUniversities: {
+                        include: { university: { select: { name: true } } }
                     },
                 },
             }),
             prisma.invitationlink.count({ where }),
         ]);
 
-        const links = linksRaw.map(({ user, university, _count, ...rest }) => ({
+        const links = linksRaw.map(({ user, InvitationUniversities, _count, ...rest }) => ({
             ...rest,
             creator: user,
-            universities: university,
+            universities: InvitationUniversities.map(iu => iu.university),
             _count: {
                 requests: _count.registrationrequest
             }

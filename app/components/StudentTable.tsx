@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, RefreshCw, UserPlus, Edit, Trash2, GraduationCap, Building2, MapPin, Phone, Mail } from 'lucide-react';
+import { Search, RefreshCw, Edit, Trash2, GraduationCap, Building2, MapPin, Phone, Mail } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -133,11 +133,6 @@ export default function StudentTable({
           </Button>
         </div>
 
-        {/* Add New Student Button */}
-        <Button className="flex items-center gap-2">
-          <UserPlus className="w-4 h-4" />
-          <span>Add Student</span>
-        </Button>
       </div>
 
       {/* Error State */}

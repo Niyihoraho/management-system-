@@ -11,6 +11,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  if (nextUrl.pathname.startsWith("/join")) {
+    return NextResponse.next()
+  }
+
   const redirectToLogin = () => NextResponse.redirect(new URL("/", req.url))
 
   if (nextUrl.pathname.startsWith("/dashboard")) {

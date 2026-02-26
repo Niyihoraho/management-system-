@@ -157,8 +157,8 @@ function RegionRow({ region, index }: { region: RegionStats; index: number }) {
                         </div>
                     </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.activeMembers.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-sm text-blue-600/80">{(uni.maleMembers || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-sm text-pink-600/80">{(uni.femaleMembers || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm text-blue-600/70">{(uni.maleMembers || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm text-pink-600/70">{(uni.femaleMembers || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.cells.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.discipleshipGroups.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.studentsInDiscipleship.toLocaleString()}</TableCell>
