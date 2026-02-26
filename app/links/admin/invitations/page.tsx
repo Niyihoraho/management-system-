@@ -174,6 +174,7 @@ export default function InvitationsPage() {
                                         ) : (
                                             links.map((link) => {
                                                 const isExpired = new Date(link.expiration) < new Date();
+                                                const isInactive = !link.isActive;
                                                 return (
                                                     <tr key={link.id} className="border-b transition-colors hover:bg-muted/50">
                                                         <td className="p-4 align-middle">
@@ -199,7 +200,9 @@ export default function InvitationsPage() {
                                                             </div>
                                                         </td>
                                                         <td className="p-4 align-middle">
-                                                            {isExpired ? (
+                                                            {isInactive ? (
+                                                                <span className="text-amber-700 bg-amber-50 px-2 py-1 rounded text-xs">Inactive</span>
+                                                            ) : isExpired ? (
                                                                 <span className="text-red-600 bg-red-50 px-2 py-1 rounded text-xs">Expired</span>
                                                             ) : (
                                                                 <span className="text-green-600 bg-green-50 px-2 py-1 rounded text-xs">Active</span>

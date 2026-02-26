@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useRouter } from 'next/navigation';
 import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban, Sparkles } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import GraduateForm from "@/app/components/GraduateForm";
 import { AssignGroupModal } from "@/components/AssignGroupModal";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
 
 import {
@@ -127,6 +129,9 @@ const shouldShowNewCellBadge = (graduate: Graduate) => {
 };
 
 export default function GraduatesPage() {
+    const router = useRouter();
+    const { userRole, isLoading: roleLoading } = useRoleAccess();
+    const isGraduateScope = userRole === 'graduatesmallgroup';
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProvince, setSelectedProvince] = useState<string>("all");
     const [graduates, setGraduates] = useState<Graduate[]>([]);
@@ -134,6 +139,8 @@ export default function GraduatesPage() {
     const [graduateGroups, setGraduateGroups] = useState<GraduateSmallGroup[]>([]);
     const [assignableGroups, setAssignableGroups] = useState<GraduateSmallGroup[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isRefetching, setIsRefetching] = useState(false);
+    const [initialLoad, setInitialLoad] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingGraduate, setEditingGraduate] = useState<Graduate | null>(null);
@@ -162,7 +169,11 @@ export default function GraduatesPage() {
     // Fetch graduates and reference data
     const fetchData = async () => {
         try {
-            setLoading(true);
+            if (initialLoad) {
+                setLoading(true);
+            } else {
+                setIsRefetching(true);
+            }
             setError(null);
 
             const [graduatesRes, provincesRes] = await Promise.all([
@@ -197,13 +208,22 @@ export default function GraduatesPage() {
             setError('Failed to fetch graduates. Please try again.');
         } finally {
             setLoading(false);
+            setIsRefetching(false);
+            setInitialLoad(false);
         }
     };
 
-    // Load data on mount
+    // Load data on mount after role access check
     useEffect(() => {
+        if (roleLoading || userRole === null) return;
+
+        if (!['superadmin', 'graduatesmallgroup'].includes(userRole)) {
+            router.replace('/dashboard');
+            return;
+        }
+
         fetchData();
-    }, []);
+    }, [roleLoading, router, userRole]);
 
     // Create graduate
     const handleCreateGraduate = async (formData: any) => {
@@ -422,43 +442,47 @@ export default function GraduatesPage() {
                                 {/* Refresh Button */}
                                 <button
                                     onClick={fetchData}
-                                    disabled={loading}
+                                    disabled={loading || isRefetching}
                                     className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-foreground bg-muted/30 hover:bg-muted/50 border border-border/20 hover:border-border/40 rounded-lg transition-all duration-200 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                                    <span className="hidden sm:inline">{loading ? 'Loading...' : 'Refresh'}</span>
+                                    <RefreshCw className={`w-4 h-4 ${(loading || isRefetching) ? 'animate-spin' : ''}`} />
+                                    <span className="hidden sm:inline">{(loading || isRefetching) ? 'Loading...' : 'Refresh'}</span>
                                 </button>
                             </div>
 
-                            {/* Province Filter */}
-                            <div className="w-full sm:w-48">
-                                <Select
-                                    value={selectedProvince}
-                                    onValueChange={setSelectedProvince}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="All Provinces" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Provinces</SelectItem>
-                                        {provinces.map((province) => (
-                                            <SelectItem key={province.id} value={province.id}>
-                                                {province.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {!isGraduateScope && (
+                                <>
+                                    {/* Province Filter */}
+                                    <div className="w-full sm:w-48">
+                                        <Select
+                                            value={selectedProvince}
+                                            onValueChange={setSelectedProvince}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="All Provinces" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Provinces</SelectItem>
+                                                {provinces.map((province) => (
+                                                    <SelectItem key={province.id} value={province.id}>
+                                                        {province.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
 
-                            {/* Add New Graduate Button */}
-                            <Button
-                                onClick={() => setIsFormOpen(true)}
-                                className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 shadow-sm text-sm sm:text-base"
-                            >
-                                <Plus className="w-4 h-4" />
-                                <span className="hidden sm:inline">Add New Graduate</span>
-                                <span className="sm:hidden">Add Graduate</span>
-                            </Button>
+                                    {/* Add New Graduate Button */}
+                                    <Button
+                                        onClick={() => setIsFormOpen(true)}
+                                        className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 shadow-sm text-sm sm:text-base"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Add New Graduate</span>
+                                        <span className="sm:hidden">Add Graduate</span>
+                                    </Button>
+                                </>
+                            )}
                         </div>
 
                         {/* Error State */}

@@ -12,7 +12,6 @@ import {
 
 import { NavMain } from "@/app/components/nav-main"
 import { NavUser } from "@/app/components/nav-user"
-import { SidebarNotifications } from "@/app/components/sidebar-notifications"
 import {
     Sidebar,
     SidebarContent,
@@ -72,10 +71,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 items: (() => {
                     const baseItems = [];
 
-                    // Students - Visible to University level and above
+                    // Students - Visible to superadmin, region, and university scopes
                     if (
                         safeUserRole === "superadmin" ||
-                        safeUserRole === "national" ||
                         safeUserRole === "region" ||
                         safeUserRole === "university"
                     ) {
@@ -86,10 +84,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         });
                     }
 
-                    // Graduates - Visible to national/superadmin and graduate group leaders
+                    // Graduates - Visible to superadmin and graduate group leaders
                     if (
                         safeUserRole === "superadmin" ||
-                        safeUserRole === "national" ||
                         safeUserRole === "graduatesmallgroup"
                     ) {
                         baseItems.push({
@@ -143,6 +140,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         url: "/links/organization/gbu-data",
                                         pro: false,
                                     },
+                                    {
+                                        title: "Campus Information",
+                                        url: "/links/organization/campus-data",
+                                        pro: false,
+                                    },
                                 ];
                             } else if (safeUserRole === "region") {
                                 return [
@@ -166,6 +168,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         url: "/links/organization/gbu-data",
                                         pro: false,
                                     },
+                                    {
+                                        title: "Campus Information",
+                                        url: "/links/organization/campus-data",
+                                        pro: false,
+                                    },
                                 ];
                             }
                             else if (safeUserRole === "university") {
@@ -178,6 +185,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     {
                                         title: "General Information",
                                         url: "/links/organization/gbu-data",
+                                        pro: false,
+                                    },
+                                    {
+                                        title: "Campus Information",
+                                        url: "/links/organization/campus-data",
                                         pro: false,
                                     },
                                 ];
@@ -297,9 +309,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     return (
         <Sidebar collapsible="icon" {...props} className="border-r border-border">
-            <SidebarHeader>
-                <SidebarNotifications />
-            </SidebarHeader>
+            <SidebarHeader />
             <SidebarContent>
                 <NavMain items={navItems} />
             </SidebarContent>

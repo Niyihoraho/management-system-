@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import axios from 'axios';
+import type { AxiosError } from 'axios';
 import { Search, RefreshCw, UserPlus, Edit, Trash2, Eye, Users, Mail, Phone, Calendar, UserCheck } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { AddUserModal } from "@/components/add-user-modal";
@@ -59,16 +60,20 @@ const userStatusColors = {
 
 const scopeLabels = {
   superadmin: 'Super Admin',
-  admin: 'Admin',
-  moderator: 'Moderator',
-  user: 'User',
+  national: 'National',
+  region: 'Region',
+  university: 'University',
+  smallgroup: 'Small Group',
+  graduatesmallgroup: 'Graduate Group',
 };
 
 const scopeColors = {
   superadmin: 'bg-purple-100 text-purple-800',
-  admin: 'bg-blue-100 text-blue-800',
-  moderator: 'bg-yellow-100 text-yellow-800',
-  user: 'bg-gray-100 text-gray-800',
+  national: 'bg-indigo-100 text-indigo-800',
+  region: 'bg-blue-100 text-blue-800',
+  university: 'bg-cyan-100 text-cyan-800',
+  smallgroup: 'bg-amber-100 text-amber-800',
+  graduatesmallgroup: 'bg-emerald-100 text-emerald-800',
 };
 
 export default function UserManagementPage() {
@@ -160,7 +165,12 @@ export default function UserManagementPage() {
       }
     } catch (err) {
       console.error('Error deleting user:', err);
-      alert('Failed to delete user. Please try again.');
+      const axiosError = err as AxiosError<{ error?: string; details?: string }>;
+      const message =
+        axiosError.response?.data?.details ||
+        axiosError.response?.data?.error ||
+        'Failed to delete user. Please try again.';
+      alert(message);
     } finally {
       setDeleting(false);
     }
@@ -197,6 +207,20 @@ export default function UserManagementPage() {
 
   const _goToNextPage = () => {
     goToPage(currentPage + 1);
+  };
+
+  const getScopeLabel = (scope: string) => {
+    const mapped = scopeLabels[scope as keyof typeof scopeLabels];
+    if (mapped) return mapped;
+
+    return scope
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_-]/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  const getScopeColor = (scope: string) => {
+    return scopeColors[scope as keyof typeof scopeColors] || 'bg-gray-100 text-gray-800';
   };
 
   // Show loading state while session is being fetched
@@ -398,8 +422,8 @@ export default function UserManagementPage() {
                               {user.userrole && user.userrole.length > 0 ? (
                                 user.userrole.map((role, index) => (
                                   <div key={index} className="flex flex-col gap-1">
-                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full w-fit ${scopeColors[role.scope as keyof typeof scopeColors]}`}>
-                                      {scopeLabels[role.scope as keyof typeof scopeLabels]}
+                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full w-fit ${getScopeColor(role.scope)}`}>
+                                      {getScopeLabel(role.scope)}
                                     </span>
                                     {role.region && (
                                       <span className="text-xs text-muted-foreground">Region: {role.region.name}</span>

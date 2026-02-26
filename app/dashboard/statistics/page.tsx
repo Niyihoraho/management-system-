@@ -37,6 +37,7 @@ export default function StatisticsPage() {
     const [graduateData, setGraduateData] = useState<any>(null);
     const [activeTab, setActiveTab] = useState("students");
     const [selectedYear, setSelectedYear] = useState<string>("all");
+    const [isRefetching, setIsRefetching] = useState(false);
 
     // Generate last 10 years
     const currentYear = new Date().getFullYear();
@@ -44,7 +45,12 @@ export default function StatisticsPage() {
 
     const fetchData = async () => {
         try {
-            setLoading(true);
+            const hasDataForTab = (activeTab === "students" && data) || (activeTab === "graduates" && graduateData);
+            if (hasDataForTab) {
+                setIsRefetching(true);
+            } else {
+                setLoading(true);
+            }
             setError(null);
 
             const yearQuery = selectedYear !== "all" ? `?year=${selectedYear}` : "";
@@ -65,6 +71,7 @@ export default function StatisticsPage() {
             setError(`Failed to load ${activeTab} statistics data. Please try again.`);
         } finally {
             setLoading(false);
+            setIsRefetching(false);
         }
     };
 
@@ -123,8 +130,8 @@ export default function StatisticsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-                                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading || isRefetching}>
+                                <RefreshCw className={`h-4 w-4 mr-2 ${(loading || isRefetching) ? 'animate-spin' : ''}`} />
                                 Refresh
                             </Button>
                         </div>

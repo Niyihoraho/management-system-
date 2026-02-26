@@ -73,6 +73,13 @@ export async function POST(req: Request) {
 
         const payloadData = (payload ?? {}) as Record<string, any>;
         const migrationStudentId = typeof payloadData.sourceStudentId === 'number' ? payloadData.sourceStudentId : null;
+        const normalizedSex = typeof payloadData.sex === 'string'
+            ? (payloadData.sex.toLowerCase() === 'male' ? 'Male' : payloadData.sex.toLowerCase() === 'female' ? 'Female' : null)
+            : null;
+
+        if (!normalizedSex) {
+            return new NextResponse('Sex is required to approve this registration', { status: 422 });
+        }
 
         const runApproval = async (includeSex: boolean) => prisma.$transaction(async (tx) => {
 
@@ -84,9 +91,7 @@ export async function POST(req: Request) {
                 await tx.student.create({
                     data: {
                         fullName: request.fullName || payloadData.fullName,
-                        ...(includeSex && (payloadData.sex === 'Male' || payloadData.sex === 'Female')
-                            ? { sex: payloadData.sex }
-                            : {}),
+                        ...(includeSex ? { sex: normalizedSex } : {}),
                         phone: request.phone || payloadData.phone,
                         email: request.email || payloadData.email,
                         universityId: uniId,
@@ -128,9 +133,7 @@ export async function POST(req: Request) {
                 const graduate = await tx.graduate.create({
                     data: {
                         fullName: request.fullName || payloadData.fullName,
-                        ...(includeSex && (payloadData.sex === 'Male' || payloadData.sex === 'Female')
-                            ? { sex: payloadData.sex }
-                            : {}),
+                        ...(includeSex ? { sex: normalizedSex } : {}),
                         phone: request.phone || payloadData.phone,
                         email: request.email || payloadData.email,
                         university: payloadData.university,

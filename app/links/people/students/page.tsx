@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, RefreshCw, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { StudentForm } from "@/components/StudentForm";
 import { MigrateStudentModal } from "@/components/MigrateStudentModal";
 import { AssignGroupModal } from "@/components/AssignGroupModal";
+import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 import { toast } from "sonner";
 import {
   Breadcrumb,
@@ -111,12 +113,16 @@ const studentStatusColors: Record<string, string> = {
 };
 
 export default function StudentsPage() {
+  const router = useRouter();
+  const { userRole, isLoading: roleLoading } = useRoleAccess();
   const [searchTerm, setSearchTerm] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
   const [smallGroups, setSmallGroups] = useState<SmallGroup[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -151,10 +157,13 @@ export default function StudentsPage() {
     student: null
   });
 
-  // Fetch students and reference data
   const fetchData = async () => {
     try {
-      setLoading(true);
+      if (initialLoad) {
+        setLoading(true);
+      } else {
+        setIsRefetching(true);
+      }
       setError(null);
 
       const [studentsRes, universitiesRes, smallGroupsRes, regionsRes] = await Promise.all([
@@ -180,13 +189,22 @@ export default function StudentsPage() {
       setError('Failed to fetch students. Please try again.');
     } finally {
       setLoading(false);
+      setIsRefetching(false);
+      setInitialLoad(false);
     }
   };
 
-  // Load data on mount
+  // Load data on mount after role access check
   useEffect(() => {
+    if (roleLoading || userRole === null) return;
+
+    if (!['superadmin', 'region', 'university'].includes(userRole)) {
+      router.replace('/dashboard');
+      return;
+    }
+
     fetchData();
-  }, []);
+  }, [roleLoading, router, userRole]);
 
   // Create student
   const handleCreateStudent = async (formData: any) => {
@@ -410,23 +428,14 @@ export default function StudentsPage() {
                 {/* Refresh Button */}
                 <button
                   onClick={fetchData}
-                  disabled={loading}
+                  disabled={loading || isRefetching}
                   className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-foreground bg-muted/30 hover:bg-muted/50 border border-border/20 hover:border-border/40 rounded-lg transition-all duration-200 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">{loading ? 'Loading...' : 'Refresh'}</span>
+                  <RefreshCw className={`w-4 h-4 ${(loading || isRefetching) ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{(loading || isRefetching) ? 'Loading...' : 'Refresh'}</span>
                 </button>
               </div>
 
-              {/* Add New Student Button */}
-              <Button
-                onClick={() => setIsFormOpen(true)}
-                className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 shadow-sm text-sm sm:text-base"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Add New Student</span>
-                <span className="sm:hidden">Add Student</span>
-              </Button>
             </div>
 
             {/* Error State */}
@@ -677,7 +686,13 @@ export default function StudentsPage() {
         onClose={() => setGroupAssignModal(prev => ({ ...prev, isOpen: false }))}
         entityId={groupAssignModal.studentId}
         currentGroupId={groupAssignModal.currentGroupId}
-        smallGroups={smallGroups}
+        smallGroups={
+          groupAssignModal.studentId
+            ? smallGroups.filter(
+              (g) => g.universityId === students.find((s) => s.id === groupAssignModal.studentId)?.universityId
+            )
+            : smallGroups
+        }
         onAssign={handleAssignGroup}
       />
     </SidebarProvider>

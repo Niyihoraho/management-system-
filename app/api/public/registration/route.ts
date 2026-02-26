@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { RoleScope } from '@/lib/generated/prisma';
 import { sendRegistrationSubmittedEmail } from '@/lib/email';
 import { z } from 'zod';
 
@@ -7,8 +8,7 @@ const submissionSchema = z.object({
     fullName: z.string(),
     sex: z
         .union([z.literal('Male'), z.literal('Female'), z.literal('male'), z.literal('female')])
-        .optional()
-        .transform((value) => (value ? (value.toLowerCase() === 'male' ? 'Male' : 'Female') : undefined)),
+        .transform((value) => (value.toLowerCase() === 'male' ? 'Male' : 'Female')),
     email: z.string().email().optional().or(z.literal('')),
     phone: z.string(),
     type: z.enum(['student', 'graduate']),
@@ -50,6 +50,7 @@ export async function POST(req: Request) {
             fullName: typeof body?.fullName === 'string' ? body.fullName.trim() : body?.fullName,
             email: typeof body?.email === 'string' ? body.email.trim() : body?.email,
             phone: typeof body?.phone === 'string' ? body.phone.trim() : body?.phone,
+            sex: typeof body?.sex === 'string' ? body.sex.trim() : body?.sex,
             invitationLinkId: typeof body?.invitationLinkId === 'string' ? body.invitationLinkId.trim() : body?.invitationLinkId,
             universityId:
                 typeof body?.universityId === 'string' && body.universityId.trim() === ''
@@ -139,12 +140,29 @@ export async function POST(req: Request) {
             userOrConditions.push({ email: data.email });
         }
 
+        const adminScopes: RoleScope[] = ['superadmin', 'national', 'region', 'university', 'smallgroup', 'graduatesmallgroup'];
 
-        // Check if phone or email already exists in User table
+
+        // Check if phone/email exists in User table for non-admin accounts only.
+        // Admin/staff accounts should not block public member registration.
         const existingUser = await prisma.user.findFirst({
             where: {
-                OR: userOrConditions
-            }
+                OR: userOrConditions,
+                NOT: {
+                    userRole: {
+                        some: {
+                            scope: {
+                                in: adminScopes,
+                            },
+                        },
+                    },
+                },
+            },
+            include: {
+                userRole: {
+                    select: { scope: true },
+                },
+            },
         });
 
         let matchType = 'new_user';

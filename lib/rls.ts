@@ -200,13 +200,16 @@ export function getTableRLSConditions(userScope: UserScope, tableName: string): 
       // Small groups have regionId and universityId
       return {
         ...(rlsConditions.regionId && { regionId: rlsConditions.regionId }),
-        ...(rlsConditions.universityId && { universityId: rlsConditions.universityId })
+        ...(rlsConditions.universityId && { universityId: rlsConditions.universityId }),
+        ...(rlsConditions.smallGroupId && { id: rlsConditions.smallGroupId })
       };
 
     case 'graduateSmallGroup':
     case 'GraduateSmallGroup':
       // Graduate groups don't have regionId anymore
-      return {};
+      return {
+        ...(rlsConditions.graduateGroupId && { id: rlsConditions.graduateGroupId })
+      };
 
     case 'region':
     case 'Region':

@@ -11,7 +11,7 @@ export function withRLS<T extends unknown[]>(
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
     try {
       const userScope = await getUserScope();
-      
+
       if (!userScope) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
@@ -29,7 +29,7 @@ export function withRLS<T extends unknown[]>(
  */
 export function createRLSQuery(userScope: UserScope, baseWhere: Record<string, unknown> = {}) {
   const rlsConditions = generateRLSConditions(userScope);
-  
+
   return {
     where: {
       ...baseWhere,
@@ -61,7 +61,7 @@ export async function checkResourceAccess(
  */
 export function getTableRLSConditions(userScope: UserScope, tableName: string): Record<string, unknown> {
   const rlsConditions = generateRLSConditions(userScope);
-  
+
   // For tables that don't have all the foreign key columns,
   // we need to map the conditions appropriately
   switch (tableName) {
@@ -73,29 +73,29 @@ export function getTableRLSConditions(userScope: UserScope, tableName: string): 
     case 'contributiondesignation':
       // These tables have regionId, universityId, smallGroupId, alumniGroupId
       return rlsConditions;
-    
+
     case 'university':
       // Universities only have regionId
       return rlsConditions.regionId ? { regionId: rlsConditions.regionId } : {};
-    
+
     case 'smallgroup':
       // Small groups have regionId and universityId
       return {
         ...(rlsConditions.regionId && { regionId: rlsConditions.regionId }),
         ...(rlsConditions.universityId && { universityId: rlsConditions.universityId })
       };
-    
+
     case 'alumnismallgroup':
       // Alumni groups have regionId
       return rlsConditions.regionId ? { regionId: rlsConditions.regionId } : {};
-    
+
     case 'region':
       // Regions don't have foreign keys, so we need to check if user has access to specific regions
       if (userScope.scope === 'region' && userScope.regionId) {
         return { id: userScope.regionId };
       }
       return {};
-    
+
     default:
       return rlsConditions;
   }

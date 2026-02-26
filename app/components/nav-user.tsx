@@ -28,7 +28,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { NotificationBell } from "@/components/notification-bell"
 
 export function NavUser({
   user,

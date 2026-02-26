@@ -163,17 +163,17 @@ model Province {
 }
 
 model Region {
-  id                 Int                  @id @default(autoincrement())
-  name               String               @unique
-  approvalRequest    ApprovalRequest[]
-  document           Document[]
-  invitationlink     invitationlink[]
-  property           Property[]
-  report_submission  report_submission[]
-  smallGroup         SmallGroup[]
-  student            student[]
-  university         University[]
-  userRole           UserRole[]
+  id                Int                 @id @default(autoincrement())
+  name              String              @unique
+  approvalRequest   ApprovalRequest[]
+  document          Document[]
+  invitationlink    invitationlink[]
+  property          Property[]
+  report_submission report_submission[]
+  smallGroup        SmallGroup[]
+  student           student[]
+  university        University[]
+  userRole          UserRole[]
 
   @@map("region")
 }
@@ -220,21 +220,22 @@ model SmallGroup {
 }
 
 model University {
-  id                Int               @id @default(autoincrement())
-  name              String
-  regionId          Int
-  studentPopulation Int?              @default(0)
-  approvalRequest   ApprovalRequest[]
-  association       association[]
-  cult              cult[]
-  document          Document[]
-  faculty           faculty[]
-  gbuData           GBUData[]
-  smallGroup        SmallGroup[]
-  student           student[]
-  region            Region            @relation(fields: [regionId], references: [id])
-  userRole          UserRole[]
-  invitationlink    invitationlink[]  @relation("InvitationUniversities")
+  id                     Int                      @id @default(autoincrement())
+  name                   String
+  regionId               Int
+  studentPopulation      Int?                     @default(0)
+  InvitationUniversities InvitationUniversities[]
+  approvalRequest        ApprovalRequest[]
+  association            association[]
+  cult                   cult[]
+  document               Document[]
+  faculty                faculty[]
+  gbuData                GBUData[]
+  smallGroup             SmallGroup[]
+  student                student[]
+  region                 Region                   @relation(fields: [regionId], references: [id])
+  userRole               UserRole[]
+  CampusData             CampusData[]
 
   @@index([regionId], map: "University_regionId_fkey")
   @@map("university")
@@ -425,8 +426,6 @@ model GBUData {
   id                     Int        @id @default(autoincrement())
   universityId           Int
   activeMembers          Int        @default(0)
-  maleMembers            Int        @default(0)
-  femaleMembers          Int        @default(0)
   cells                  Int        @default(0)
   discipleshipGroups     Int        @default(0)
   studentsInDiscipleship Int        @default(0)
@@ -441,10 +440,25 @@ model GBUData {
   @@map("gbu_data")
 }
 
+model CampusData {
+  id            Int        @id @default(autoincrement())
+  universityId  Int
+  year          Int        @default(dbgenerated("EXTRACT(year FROM CURRENT_DATE)::integer"))
+  studentsCount Int        @default(0)
+  faculties     String?    @db.Text
+  associations  String?    @db.Text
+  cults         String?    @db.Text
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  university    University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@unique([universityId, year])
+  @@map("campus_data")
+}
+
 model graduate {
   id                 Int                 @id @default(autoincrement())
   fullName           String
-  sex                Sex?
   phone              String?
   email              String?             @unique
   university         String?
@@ -467,6 +481,7 @@ model graduate {
   enableReminder     Boolean             @default(false)
   provinceId         BigInt?
   noCellAvailable    Boolean             @default(false)
+  sex                Sex?
   financialsupport   financialsupport?
   graduatesmallgroup graduatesmallgroup? @relation(fields: [graduateGroupId], references: [id])
   provinces          Province?           @relation(fields: [provinceId], references: [id])
@@ -489,23 +504,21 @@ model graduatesmallgroup {
 }
 
 model invitationlink {
-  id                  String                  @id
-  slug                String                  @unique
-  type                RegistrationRequestType
-  expiration          DateTime
-  description         String?
-  isActive            Boolean                 @default(true)
-  createdBy           String
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime
-  regionId            Int?
-  user                User                    @relation(fields: [createdBy], references: [id])
-  region              Region?                 @relation(fields: [regionId], references: [id])
-  registrationrequest registrationrequest[]
-  university          University[]            @relation("InvitationUniversities")
+  id                     String                   @id
+  slug                   String                   @unique
+  type                   RegistrationRequestType
+  expiration             DateTime
+  description            String?
+  isActive               Boolean                  @default(true)
+  createdBy              String
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  regionId               Int?
+  InvitationUniversities InvitationUniversities[]
+  user                   User                     @relation(fields: [createdBy], references: [id])
+  region                 Region?                  @relation(fields: [regionId], references: [id])
+  registrationrequest    registrationrequest[]
 }
-
-
 
 model Property {
   id                       Int          @id @default(autoincrement())
@@ -572,7 +585,6 @@ model strategic_priority {
 model student {
   id                   Int           @id @default(autoincrement())
   fullName             String
-  sex                  Sex?
   phone                String?
   email                String?       @unique
   course               String?
@@ -586,10 +598,10 @@ model student {
   smallGroupId         Int?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime
+  sex                  Sex?
   region               Region?       @relation(fields: [regionId], references: [id])
   smallgroup           SmallGroup?   @relation(fields: [smallGroupId], references: [id])
   university           University    @relation(fields: [universityId], references: [id])
-
 
   @@index([smallGroupId])
   @@index([universityId])
@@ -600,6 +612,17 @@ model student_archive {
   studentId  Int
   jsonData   Json
   migratedAt DateTime @default(now())
+}
+
+model InvitationUniversities {
+  B              String
+  A              Int
+  university     University     @relation(fields: [A], references: [id], onDelete: Cascade)
+  invitationlink invitationlink @relation(fields: [B], references: [id], onDelete: Cascade)
+
+  @@id([A, B], map: "_InvitationUniversities_AB_pkey")
+  @@index([B], map: "_InvitationUniversities_B_index")
+  @@map("_InvitationUniversities")
 }
 
 enum ApprovalStatus {

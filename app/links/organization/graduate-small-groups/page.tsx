@@ -28,6 +28,8 @@ export default function GraduateSmallGroupsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [graduateSmallGroups, setGraduateSmallGroups] = useState<GraduateSmallGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -44,7 +46,11 @@ export default function GraduateSmallGroupsPage() {
   // Fetch graduate small groups from API
   const fetchGraduateSmallGroups = async () => {
     try {
-      setLoading(true);
+      if (initialLoad) {
+        setLoading(true);
+      } else {
+        setIsRefetching(true);
+      }
       setError(null);
       const response = await axios.get('/api/graduate-small-groups');
       const data = response.data;
@@ -55,6 +61,8 @@ export default function GraduateSmallGroupsPage() {
       setError('Failed to fetch graduate small groups. Please try again.');
     } finally {
       setLoading(false);
+      setIsRefetching(false);
+      setInitialLoad(false);
     }
   };
 
@@ -173,11 +181,11 @@ export default function GraduateSmallGroupsPage() {
                 {/* Refresh Button */}
                 <button
                   onClick={fetchGraduateSmallGroups}
-                  disabled={loading}
+                  disabled={loading || isRefetching}
                   className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-foreground bg-muted/30 hover:bg-muted/50 border border-border/20 hover:border-border/40 rounded-lg transition-all duration-200 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">{loading ? 'Loading...' : 'Refresh'}</span>
+                  <RefreshCw className={`w-4 h-4 ${(loading || isRefetching) ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{(loading || isRefetching) ? 'Loading...' : 'Refresh'}</span>
                 </button>
               </div>
 

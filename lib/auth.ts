@@ -16,7 +16,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        const email = credentials?.email as string | undefined
+        const rawEmail = credentials?.email as string | undefined
+        const email = rawEmail?.trim().toLowerCase()
         const password = credentials?.password as string | undefined
         if (!email || !password) {
           return null
@@ -71,7 +72,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               region: role.region,
               university: role.university,
               smallGroup: role.smallGroup,
-              graduateSmallGroup: role.graduateSmallGroup,
+              graduateSmallGroup: role.graduateSmallGroup ? {
+                id: role.graduateSmallGroup.id,
+                name: role.graduateSmallGroup.name,
+                provinceId: role.graduateSmallGroup.provinceId ? Number(role.graduateSmallGroup.provinceId) : null,
+              } : null,
             })) || []
           }
         } catch (error) {
@@ -114,6 +119,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: "/",
+  },
+  logger: {
+    error(error) {
+      const authError = error as Error & { type?: string }
+      if (authError?.type === "CredentialsSignin") {
+        return
+      }
+      console.error("[auth][error]", error)
+    },
   },
   secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development",
   trustHost: process.env.NODE_ENV === "production" ? false : true,

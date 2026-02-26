@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheDel } from "@/lib/cache";
 
 export async function POST(req: Request) {
     const session = await auth();
@@ -23,6 +24,8 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { action, data } = body;
 
+        const CACHE_KEY = 'reporting-config';
+
         if (action === "create_priority") {
             const priority = await prisma.strategic_priority.create({
                 data: {
@@ -30,6 +33,7 @@ export async function POST(req: Request) {
                     description: data.description,
                 },
             });
+            await cacheDel(CACHE_KEY);
             return NextResponse.json(priority);
         }
 
@@ -40,6 +44,7 @@ export async function POST(req: Request) {
                     priorityId: parseInt(data.priorityId),
                 }
             });
+            await cacheDel(CACHE_KEY);
             return NextResponse.json(category);
         }
 
@@ -50,6 +55,7 @@ export async function POST(req: Request) {
                     categoryId: parseInt(data.categoryId),
                 }
             });
+            await cacheDel(CACHE_KEY);
             return NextResponse.json(template);
         }
 
@@ -60,6 +66,7 @@ export async function POST(req: Request) {
                     priorityId: parseInt(data.priorityId),
                 }
             });
+            await cacheDel(CACHE_KEY);
             return NextResponse.json(question);
         }
 
@@ -67,6 +74,7 @@ export async function POST(req: Request) {
             await prisma.strategic_priority.delete({
                 where: { id: parseInt(data.id) }
             });
+            await cacheDel(CACHE_KEY);
             return NextResponse.json({ success: true });
         }
 
@@ -74,6 +82,7 @@ export async function POST(req: Request) {
             await prisma.activity_category.delete({
                 where: { id: parseInt(data.id) }
             });
+            await cacheDel(CACHE_KEY);
             return NextResponse.json({ success: true });
         }
 
@@ -81,6 +90,7 @@ export async function POST(req: Request) {
             await prisma.activity_template.delete({
                 where: { id: parseInt(data.id) }
             });
+            await cacheDel(CACHE_KEY);
             return NextResponse.json({ success: true });
         }
 
@@ -88,6 +98,7 @@ export async function POST(req: Request) {
             await prisma.evaluation_question.delete({
                 where: { id: parseInt(data.id) }
             });
+            await cacheDel(CACHE_KEY);
             return NextResponse.json({ success: true });
         }
 

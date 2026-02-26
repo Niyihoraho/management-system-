@@ -26,6 +26,8 @@ export default function SmallGroupsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [smallGroups, setSmallGroups] = useState<SmallGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -42,7 +44,11 @@ export default function SmallGroupsPage() {
   // Fetch small groups from API
   const fetchSmallGroups = async () => {
     try {
-      setLoading(true);
+      if (initialLoad) {
+        setLoading(true);
+      } else {
+        setIsRefetching(true);
+      }
       setError(null);
       const response = await axios.get('/api/small-groups');
       setSmallGroups(response.data);
@@ -51,6 +57,8 @@ export default function SmallGroupsPage() {
       setError('Failed to fetch small groups. Please try again.');
     } finally {
       setLoading(false);
+      setIsRefetching(false);
+      setInitialLoad(false);
     }
   };
 
@@ -87,17 +95,17 @@ export default function SmallGroupsPage() {
     if (!deleteModal.smallGroupId) return;
 
     setDeleting(true);
-    
+
     try {
       const response = await axios.delete(`/api/small-groups?id=${deleteModal.smallGroupId}`);
-      
+
       if (response.status === 200) {
         // Remove the small group from the local state
         setSmallGroups(prev => prev.filter(smallGroup => smallGroup.id !== deleteModal.smallGroupId));
-        
+
         // Close the modal
         closeDeleteModal();
-        
+
         // Show success message (you could add a toast notification here)
         console.log('Small group deleted successfully');
       }
@@ -116,9 +124,9 @@ export default function SmallGroupsPage() {
 
   const filteredSmallGroups = smallGroups.filter(smallGroup => {
     if (!searchTerm) return true;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    
+
     return (
       smallGroup.name?.toLowerCase().includes(searchLower) ||
       smallGroup.region?.name?.toLowerCase().includes(searchLower) ||
@@ -161,13 +169,13 @@ export default function SmallGroupsPage() {
                 </div>
 
                 {/* Refresh Button */}
-                <button 
+                <button
                   onClick={fetchSmallGroups}
-                  disabled={loading}
+                  disabled={loading || isRefetching}
                   className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-foreground bg-muted/30 hover:bg-muted/50 border border-border/20 hover:border-border/40 rounded-lg transition-all duration-200 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">{loading ? 'Loading...' : 'Refresh'}</span>
+                  <RefreshCw className={`w-4 h-4 ${(loading || isRefetching) ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{(loading || isRefetching) ? 'Loading...' : 'Refresh'}</span>
                 </button>
               </div>
 
@@ -188,7 +196,7 @@ export default function SmallGroupsPage() {
                   <span className="text-sm font-medium">Error:</span>
                   <span className="text-sm">{error}</span>
                 </div>
-                <button 
+                <button
                   onClick={fetchSmallGroups}
                   className="mt-2 text-sm text-destructive hover:text-destructive/80 underline"
                 >
@@ -229,40 +237,40 @@ export default function SmallGroupsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
-                    {filteredSmallGroups.map((smallGroup) => (
-                      <tr key={smallGroup.id}>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-foreground">
-                          {smallGroup.id}
-                        </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-foreground">
-                          {smallGroup.name}
-                        </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-muted-foreground">
-                          {smallGroup.university?.name}
-                        </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-muted-foreground">
-                          {smallGroup.region?.name}
-                        </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
-                          <div className="flex items-center gap-1 sm:gap-2">
-                            <button 
-                              onClick={() => openEditModal(smallGroup)}
-                              className="text-muted-foreground hover:text-foreground p-1 rounded" 
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => openDeleteModal(smallGroup.id, smallGroup.name)}
-                              className="text-destructive hover:text-destructive/80 p-1 rounded" 
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                      {filteredSmallGroups.map((smallGroup) => (
+                        <tr key={smallGroup.id}>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-foreground">
+                            {smallGroup.id}
+                          </td>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-foreground">
+                            {smallGroup.name}
+                          </td>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-muted-foreground">
+                            {smallGroup.university?.name}
+                          </td>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-muted-foreground">
+                            {smallGroup.region?.name}
+                          </td>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
+                            <div className="flex items-center gap-1 sm:gap-2">
+                              <button
+                                onClick={() => openEditModal(smallGroup)}
+                                className="text-muted-foreground hover:text-foreground p-1 rounded"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => openDeleteModal(smallGroup.id, smallGroup.name)}
+                                className="text-destructive hover:text-destructive/80 p-1 rounded"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -301,7 +309,7 @@ export default function SmallGroupsPage() {
           </div>
         </div>
       </SidebarInset>
-      
+
       {/* Delete Confirmation Modal */}
       <DeleteSmallGroupModal
         isOpen={deleteModal.isOpen}
@@ -310,7 +318,7 @@ export default function SmallGroupsPage() {
         smallGroupName={deleteModal.smallGroupName}
         isLoading={deleting}
       />
-      
+
       {/* Edit Small Group Modal */}
       <EditSmallGroupModal
         smallGroup={editingSmallGroup}

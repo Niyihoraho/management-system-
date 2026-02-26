@@ -9,8 +9,6 @@ const gbuDataSchema = z.object({
     universityId: z.number(),
     year: z.number().int().min(2000).max(2100).default(new Date().getFullYear()),
     activeMembers: z.number().min(0),
-    maleMembers: z.number().min(0).default(0),
-    femaleMembers: z.number().min(0).default(0),
     cells: z.number().min(0),
     discipleshipGroups: z.number().min(0),
     studentsInDiscipleship: z.number().min(0),

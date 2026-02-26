@@ -83,8 +83,8 @@ export async function GET(req: Request) {
                 // Calculate from actual student records instead of GBUData aggregate
                 const activeStudents = uni.student?.filter((s: any) => s.status === 'active') || [];
                 const uniMembers = activeStudents.length;
-                const uniMale = activeStudents.filter((s: any) => s.sex === 'Male').length;
-                const uniFemale = activeStudents.filter((s: any) => s.sex === 'Female').length;
+                const uniMaleMembers = activeStudents.filter((s: any) => s.sex === 'Male').length;
+                const uniFemaleMembers = activeStudents.filter((s: any) => s.sex === 'Female').length;
 
                 const uniCells = latestData.cells || 0;
                 const uniGroups = latestData.discipleshipGroups || 0;
@@ -93,8 +93,8 @@ export async function GET(req: Request) {
                 const uniSaved = latestData.savedStudents || 0;
 
                 activeMembers += uniMembers;
-                maleMembers += uniMale;
-                femaleMembers += uniFemale;
+                maleMembers += uniMaleMembers;
+                femaleMembers += uniFemaleMembers;
                 cells += uniCells;
                 discipleshipGroups += uniGroups;
                 studentsInDiscipleship += uniStudents;
@@ -105,8 +105,8 @@ export async function GET(req: Request) {
                     id: uni.id,
                     name: uni.name,
                     activeMembers: uniMembers,
-                    maleMembers: uniMale,
-                    femaleMembers: uniFemale,
+                    maleMembers: uniMaleMembers,
+                    femaleMembers: uniFemaleMembers,
                     cells: uniCells,
                     discipleshipGroups: uniGroups,
                     studentsInDiscipleship: uniStudents,
@@ -193,8 +193,8 @@ export async function GET(req: Request) {
 
         return NextResponse.json(payload);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("[STATISTICS_GET]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return new NextResponse(JSON.stringify({ error: error.message, stack: error.stack }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 }
