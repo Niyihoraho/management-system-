@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { StudentForm } from "@/components/StudentForm";
 import { MigrateStudentModal } from "@/components/MigrateStudentModal";
 import { AssignGroupModal } from "@/components/AssignGroupModal";
+import { toast } from "sonner";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -59,6 +60,7 @@ import { Label } from "@/components/ui/label";
 interface Student {
   id: number;
   fullName: string;
+  sex: 'Male' | 'Female' | null;
   phone: string | null;
   email: string | null;
   universityId: number;
@@ -309,14 +311,11 @@ export default function StudentsPage() {
   const handleMigrateStudent = async (data: any) => {
     try {
       await axios.post('/api/students/migrate', data);
-
-      // Remove student from list as they are now a graduate
-      setStudents(prev => prev.filter(s => s.id !== data.studentId));
       setMigrationModal({ isOpen: false, student: null });
-      alert('Student successfully migrated to Graduates and archived.');
+      toast.success('Migration request submitted and is waiting for approval.');
     } catch (err: any) {
       console.error('Error migrating student:', err);
-      alert(err.response?.data?.error || 'Failed to migrate student');
+      toast.error(err.response?.data?.error || 'Failed to migrate student');
       throw err; // Propagate to modal to stop loading state if needed, though modal handles it
     }
   };
@@ -463,6 +462,7 @@ export default function StudentsPage() {
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold">Student</TableHead>
+                        <TableHead className="font-semibold">Sex</TableHead>
                         <TableHead className="font-semibold">Contact</TableHead>
                         <TableHead className="font-semibold">Education</TableHead>
                         <TableHead className="font-semibold">Location</TableHead>
@@ -473,7 +473,7 @@ export default function StudentsPage() {
                     <TableBody>
                       {filteredStudents.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             <div className="flex flex-col items-center gap-2">
                               <GraduationCap className="w-12 h-12 text-muted-foreground/50" />
                               <p>{searchTerm ? 'No students match your search' : 'No students found'}</p>
@@ -495,6 +495,11 @@ export default function StudentsPage() {
                                   <p className="text-xs text-muted-foreground">ID: {student.id}</p>
                                 </div>
                               </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {student.sex || 'N/A'}
+                              </Badge>
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1">
@@ -618,6 +623,7 @@ export default function StudentsPage() {
           title="Edit Student"
           initialData={{
             fullName: editingStudent.fullName,
+            sex: editingStudent.sex || 'Male',
             phone: editingStudent.phone || '',
             email: editingStudent.email || '',
             universityId: editingStudent.universityId.toString(),

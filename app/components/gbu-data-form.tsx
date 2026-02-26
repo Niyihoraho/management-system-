@@ -13,6 +13,8 @@ interface GBUFormData {
     universityId: string;
     year: string;
     activeMembers: string;
+    maleMembers: string;
+    femaleMembers: string;
     cells: string;
     discipleshipGroups: string;
     studentsInDiscipleship: string;
@@ -32,6 +34,8 @@ const initialFormData: GBUFormData = {
     universityId: '',
     year: new Date().getFullYear().toString(),
     activeMembers: '0',
+    maleMembers: '0',
+    femaleMembers: '0',
     cells: '0',
     discipleshipGroups: '0',
     studentsInDiscipleship: '0',
@@ -63,6 +67,8 @@ export default function GBUDataForm({
                     universityId: initialData.universityId?.toString() || '',
                     year: initialData.year?.toString() || new Date().getFullYear().toString(),
                     activeMembers: initialData.activeMembers?.toString() || '0',
+                    maleMembers: initialData.maleMembers?.toString() || '0',
+                    femaleMembers: initialData.femaleMembers?.toString() || '0',
                     cells: initialData.cells?.toString() || '0',
                     discipleshipGroups: initialData.discipleshipGroups?.toString() || '0',
                     studentsInDiscipleship: initialData.studentsInDiscipleship?.toString() || '0',
@@ -132,6 +138,8 @@ export default function GBUDataForm({
                 universityId: Number(formData.universityId),
                 year: Number(formData.year),
                 activeMembers: Number(formData.activeMembers),
+                maleMembers: Number(formData.maleMembers),
+                femaleMembers: Number(formData.femaleMembers),
                 cells: Number(formData.cells),
                 discipleshipGroups: Number(formData.discipleshipGroups),
                 studentsInDiscipleship: Number(formData.studentsInDiscipleship),
@@ -239,6 +247,28 @@ export default function GBUDataForm({
                                                 value={formData.activeMembers}
                                                 onChange={(e) => handleChange('activeMembers', e.target.value)}
                                                 className="h-11"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="maleMembers">Male Members</Label>
+                                            <Input
+                                                id="maleMembers"
+                                                type="number"
+                                                min="0"
+                                                value={formData.maleMembers}
+                                                onChange={(e) => handleChange('maleMembers', e.target.value)}
+                                                className="h-11 border-blue-200 focus-visible:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="femaleMembers">Female Members</Label>
+                                            <Input
+                                                id="femaleMembers"
+                                                type="number"
+                                                min="0"
+                                                value={formData.femaleMembers}
+                                                onChange={(e) => handleChange('femaleMembers', e.target.value)}
+                                                className="h-11 border-pink-200 focus-visible:ring-pink-500"
                                             />
                                         </div>
                                         <div className="space-y-2">

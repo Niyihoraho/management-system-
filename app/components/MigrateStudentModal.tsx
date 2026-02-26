@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 import {
     Dialog,
     DialogContent,
@@ -10,6 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 
 interface Student {
@@ -28,7 +36,24 @@ interface MigrateStudentModalProps {
     isOpen: boolean;
     onClose: () => void;
     student: Student | null;
-    onMigrate: (data: any) => Promise<void>;
+    onMigrate: (data: {
+        studentId: number;
+        graduationYear: string;
+        profession: string;
+        phone: string;
+        email: string;
+        residenceProvince: string;
+        residenceDistrict: string;
+        residenceSector: string;
+        provinceId?: string;
+        districtId?: string;
+        sectorId?: string;
+    }) => Promise<void>;
+}
+
+interface LocationOption {
+    id: string;
+    name: string;
 }
 
 export function MigrateStudentModal({
@@ -38,6 +63,12 @@ export function MigrateStudentModal({
     onMigrate,
 }: MigrateStudentModalProps) {
     const [loading, setLoading] = useState(false);
+    const [provinces, setProvinces] = useState<LocationOption[]>([]);
+    const [districts, setDistricts] = useState<LocationOption[]>([]);
+    const [sectors, setSectors] = useState<LocationOption[]>([]);
+    const [selectedProvinceId, setSelectedProvinceId] = useState("");
+    const [selectedDistrictId, setSelectedDistrictId] = useState("");
+    const [selectedSectorId, setSelectedSectorId] = useState("");
     const [formData, setFormData] = useState({
         graduationYear: new Date().getFullYear().toString(),
         profession: "",
@@ -48,20 +79,138 @@ export function MigrateStudentModal({
         residenceSector: "",
     });
 
-    // Load student data when modal opens
-    useState(() => {
-        if (student) {
-            setFormData({
-                graduationYear: new Date().getFullYear().toString(),
-                profession: "",
-                phone: student.phone || "",
-                email: student.email || "",
-                residenceProvince: student.placeOfBirthProvince || "",
-                residenceDistrict: student.placeOfBirthDistrict || "",
-                residenceSector: student.placeOfBirthSector || "",
-            });
+    const fetchDistricts = async (provinceId: string) => {
+        if (!provinceId) {
+            setDistricts([]);
+            return [];
         }
-    });
+
+        const response = await axios.get(`/api/locations?type=districts&parentId=${provinceId}`);
+        const items = Array.isArray(response.data) ? response.data : [];
+        setDistricts(items);
+        return items as LocationOption[];
+    };
+
+    const fetchSectors = async (districtId: string) => {
+        if (!districtId) {
+            setSectors([]);
+            return [];
+        }
+
+        const response = await axios.get(`/api/locations?type=sectors&parentId=${districtId}`);
+        const items = Array.isArray(response.data) ? response.data : [];
+        setSectors(items);
+        return items as LocationOption[];
+    };
+
+    useEffect(() => {
+        if (!isOpen || !student) return;
+
+        let cancelled = false;
+
+        const initialize = async () => {
+            try {
+                setFormData({
+                    graduationYear: new Date().getFullYear().toString(),
+                    profession: "",
+                    phone: student.phone || "",
+                    email: student.email || "",
+                    residenceProvince: student.placeOfBirthProvince || "",
+                    residenceDistrict: student.placeOfBirthDistrict || "",
+                    residenceSector: student.placeOfBirthSector || "",
+                });
+
+                setSelectedProvinceId("");
+                setSelectedDistrictId("");
+                setSelectedSectorId("");
+                setDistricts([]);
+                setSectors([]);
+
+                const provincesRes = await axios.get('/api/locations?type=provinces');
+                if (cancelled) return;
+
+                const provinceItems = Array.isArray(provincesRes.data) ? provincesRes.data as LocationOption[] : [];
+                setProvinces(provinceItems);
+
+                const matchedProvince = provinceItems.find((p) => p.name === student.placeOfBirthProvince);
+                if (!matchedProvince) return;
+
+                setSelectedProvinceId(matchedProvince.id);
+                const districtItems = await fetchDistricts(matchedProvince.id);
+                if (cancelled) return;
+
+                const matchedDistrict = districtItems.find((d) => d.name === student.placeOfBirthDistrict);
+                if (!matchedDistrict) return;
+
+                setSelectedDistrictId(matchedDistrict.id);
+                const sectorItems = await fetchSectors(matchedDistrict.id);
+                if (cancelled) return;
+
+                const matchedSector = sectorItems.find((s) => s.name === student.placeOfBirthSector);
+                if (matchedSector) {
+                    setSelectedSectorId(matchedSector.id);
+                }
+            } catch (error) {
+                console.error('Failed to load location options', error);
+            }
+        };
+
+        initialize();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, student]);
+
+    const handleProvinceChange = async (provinceId: string) => {
+        setSelectedProvinceId(provinceId);
+        setSelectedDistrictId("");
+        setSelectedSectorId("");
+        setSectors([]);
+
+        const provinceName = provinces.find((p) => p.id === provinceId)?.name || "";
+        setFormData((prev) => ({
+            ...prev,
+            residenceProvince: provinceName,
+            residenceDistrict: "",
+            residenceSector: "",
+        }));
+
+        try {
+            await fetchDistricts(provinceId);
+        } catch (error) {
+            console.error('Failed to load districts', error);
+            setDistricts([]);
+        }
+    };
+
+    const handleDistrictChange = async (districtId: string) => {
+        setSelectedDistrictId(districtId);
+        setSelectedSectorId("");
+
+        const districtName = districts.find((d) => d.id === districtId)?.name || "";
+        setFormData((prev) => ({
+            ...prev,
+            residenceDistrict: districtName,
+            residenceSector: "",
+        }));
+
+        try {
+            await fetchSectors(districtId);
+        } catch (error) {
+            console.error('Failed to load sectors', error);
+            setSectors([]);
+        }
+    };
+
+    const handleSectorChange = (sectorId: string) => {
+        setSelectedSectorId(sectorId);
+        const sectorName = sectors.find((s) => s.id === sectorId)?.name || "";
+        setFormData((prev) => ({
+            ...prev,
+            residenceSector: sectorName,
+        }));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -72,6 +221,9 @@ export function MigrateStudentModal({
             await onMigrate({
                 studentId: student.id,
                 ...formData,
+                provinceId: selectedProvinceId || undefined,
+                districtId: selectedDistrictId || undefined,
+                sectorId: selectedSectorId || undefined,
             });
             onClose();
         } catch (error) {
@@ -89,7 +241,7 @@ export function MigrateStudentModal({
                 <DialogHeader>
                     <DialogTitle>Migrate to Graduate</DialogTitle>
                     <DialogDescription>
-                        Migrate <strong>{student.fullName}</strong> to the Graduates list. This will archive their student record.
+                        Send <strong>{student.fullName}</strong> to the Graduates approval queue. An approver must review before final migration.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -143,27 +295,48 @@ export function MigrateStudentModal({
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="residenceProvince">Province</Label>
-                            <Input
-                                id="residenceProvince"
-                                value={formData.residenceProvince}
-                                onChange={(e) => setFormData({ ...formData, residenceProvince: e.target.value })}
-                            />
+                            <Select value={selectedProvinceId} onValueChange={handleProvinceChange}>
+                                <SelectTrigger id="residenceProvince">
+                                    <SelectValue placeholder="Select province" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {provinces.map((province) => (
+                                        <SelectItem key={province.id} value={province.id}>
+                                            {province.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="residenceDistrict">District</Label>
-                            <Input
-                                id="residenceDistrict"
-                                value={formData.residenceDistrict}
-                                onChange={(e) => setFormData({ ...formData, residenceDistrict: e.target.value })}
-                            />
+                            <Select value={selectedDistrictId} onValueChange={handleDistrictChange} disabled={!selectedProvinceId}>
+                                <SelectTrigger id="residenceDistrict">
+                                    <SelectValue placeholder="Select district" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {districts.map((district) => (
+                                        <SelectItem key={district.id} value={district.id}>
+                                            {district.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="residenceSector">Sector</Label>
-                            <Input
-                                id="residenceSector"
-                                value={formData.residenceSector}
-                                onChange={(e) => setFormData({ ...formData, residenceSector: e.target.value })}
-                            />
+                            <Select value={selectedSectorId} onValueChange={handleSectorChange} disabled={!selectedDistrictId}>
+                                <SelectTrigger id="residenceSector">
+                                    <SelectValue placeholder="Select sector" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {sectors.map((sector) => (
+                                        <SelectItem key={sector.id} value={sector.id}>
+                                            {sector.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
@@ -178,7 +351,7 @@ export function MigrateStudentModal({
                                     Migrating...
                                 </>
                             ) : (
-                                "Confirm Migration"
+                                "Submit for Approval"
                             )}
                         </Button>
                     </DialogFooter>

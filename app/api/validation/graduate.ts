@@ -1,11 +1,15 @@
 import { z } from "zod";
 
-export const createGraduateSchema = z.object({
+const graduateBaseSchema = z.object({
     fullName: z.string().min(1, "Full name is required").max(255, "Full name cannot exceed 255 characters"),
+    sex: z.enum(["Male", "Female", "male", "female"]).transform((value) =>
+        value.toLowerCase() === "male" ? "Male" : "Female"
+    ),
     phone: z.string().max(20, "Phone cannot exceed 20 characters").optional().or(z.literal("")).or(z.null()),
     email: z.string().email("Invalid email").max(255).optional().or(z.literal("")).or(z.null()),
     university: z.string().max(255).optional().or(z.literal("")).or(z.null()),
     course: z.string().max(255).optional().or(z.literal("")).or(z.null()),
+    profession: z.string().max(255).optional().or(z.literal("")).or(z.null()),
     graduationYear: z.union([
         z.string().transform((val) => {
             if (!val || val === "" || val === null) return null;
@@ -40,7 +44,13 @@ export const createGraduateSchema = z.object({
             return isNaN(num) ? null : num;
         }),
         z.number().int().positive(),
-    ]).refine((val) => val !== null, { message: "Graduate group is required" }),
+        z.null(),
+        z.undefined(),
+    ]).optional(),
+    noCellAvailable: z.union([
+        z.boolean(),
+        z.string().transform((val) => val === "true" || val === "1")
+    ]).optional().default(false),
     status: z.enum(["active", "inactive", "moved", "Active", "Inactive", "Moved"]).optional().default("active"),
     provinceId: z.union([
         z.string().transform((val) => {
@@ -51,8 +61,26 @@ export const createGraduateSchema = z.object({
         z.number().int().positive(),
         z.bigint().transform(val => Number(val))
     ]).optional(),
-
-
 });
 
-export const updateGraduateSchema = createGraduateSchema.partial();
+export const createGraduateSchema = graduateBaseSchema.superRefine((data, ctx) => {
+    const requiresGroup = !data.isDiaspora && !data.noCellAvailable;
+    if (requiresGroup && !data.graduateGroupId) {
+        ctx.addIssue({
+            path: ["graduateGroupId"],
+            code: z.ZodIssueCode.custom,
+            message: "Graduate group is required",
+        });
+    }
+});
+
+export const updateGraduateSchema = graduateBaseSchema.partial().superRefine((data, ctx) => {
+    const requiresGroup = data.isDiaspora === false && data.noCellAvailable === false;
+    if (requiresGroup && !data.graduateGroupId) {
+        ctx.addIssue({
+            path: ["graduateGroupId"],
+            code: z.ZodIssueCode.custom,
+            message: "Graduate group is required",
+        });
+    }
+});

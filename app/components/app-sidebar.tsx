@@ -175,6 +175,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         url: "/links/organization/small-groups",
                                         pro: false,
                                     },
+                                    {
+                                        title: "General Information",
+                                        url: "/links/organization/gbu-data",
+                                        pro: false,
+                                    },
                                 ];
                             }
 

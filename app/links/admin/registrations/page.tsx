@@ -46,6 +46,20 @@ interface RegistrationRequest {
     };
 }
 
+const toLabel = (key: string) => {
+    if (key.endsWith('Id')) {
+        const base = key.slice(0, -2);
+        return base.replace(/([A-Z])/g, ' $1').replace(/^./, (ch) => ch.toUpperCase()).trim();
+    }
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, (ch) => ch.toUpperCase()).trim();
+};
+
+const toDisplayValue = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return 'N/A';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    return String(value);
+};
+
 export default function RegistrationsPage() {
     const router = useRouter();
     const { userRole } = useRoleAccess();
@@ -57,7 +71,9 @@ export default function RegistrationsPage() {
     const fetchRequests = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await axios.get('/api/registrations'); // We need to create this API
+            const res = await axios.get('/api/registrations', {
+                headers: { 'x-read-after-write': '1' }
+            });
             setRequests(res.data.requests || []);
         } catch (error) {
             console.error('Failed to fetch registrations', error);
@@ -229,10 +245,16 @@ export default function RegistrationsPage() {
                                     <div className="bg-muted p-3 rounded-md text-sm space-y-1">
                                         {Object.entries(selectedRequest.payload).map(([key, value]) => {
                                             if (['fullName', 'phone', 'email', 'type', 'invitationLinkId', 'role_description'].includes(key)) return null;
+
+                                            if (key.endsWith('Id')) {
+                                                const pairedKey = key.slice(0, -2);
+                                                if (selectedRequest.payload[pairedKey]) return null;
+                                            }
+
                                             return (
                                                 <div key={key} className="grid grid-cols-[140px_1fr]">
-                                                    <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                                                    <span>{String(value)}</span>
+                                                    <span className="font-medium">{toLabel(key)}:</span>
+                                                    <span>{toDisplayValue(value)}</span>
                                                 </div>
                                             )
                                         })}

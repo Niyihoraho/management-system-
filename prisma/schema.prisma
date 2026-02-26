@@ -425,6 +425,8 @@ model GBUData {
   id                     Int        @id @default(autoincrement())
   universityId           Int
   activeMembers          Int        @default(0)
+  maleMembers            Int        @default(0)
+  femaleMembers          Int        @default(0)
   cells                  Int        @default(0)
   discipleshipGroups     Int        @default(0)
   studentsInDiscipleship Int        @default(0)
@@ -442,6 +444,7 @@ model GBUData {
 model graduate {
   id                 Int                 @id @default(autoincrement())
   fullName           String
+  sex                Sex?
   phone              String?
   email              String?             @unique
   university         String?
@@ -569,6 +572,7 @@ model strategic_priority {
 model student {
   id                   Int           @id @default(autoincrement())
   fullName             String
+  sex                  Sex?
   phone                String?
   email                String?       @unique
   course               String?
@@ -703,9 +707,13 @@ enum SupportStatus {
   later
 }
 
+enum Sex {
+  Male
+  Female
+}
+
 enum UserStatus {
   active
   inactive
   suspended
 }
-

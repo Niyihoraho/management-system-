@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { getUserScope } from '@/lib/rls';
+import { cacheDel } from '@/lib/cache';
+
+const toJsonSafe = <T>(value: T): T => {
+    return JSON.parse(
+        JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? v.toString() : v))
+    ) as T;
+};
 
 interface RouteParams {
     params: { id: string };
@@ -11,6 +19,11 @@ export async function GET(req: Request, { params }: RouteParams) {
         const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const userScope = await getUserScope();
+        if (!userScope || !['superadmin', 'national'].includes(userScope.scope)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const id = parseInt(params.id);
@@ -43,7 +56,7 @@ export async function GET(req: Request, { params }: RouteParams) {
             );
         }
 
-        return NextResponse.json(financialSupport);
+        return NextResponse.json(toJsonSafe(financialSupport));
 
     } catch (error) {
         console.error('Error fetching financial support:', error);
@@ -61,13 +74,26 @@ export async function PATCH(req: Request, { params }: RouteParams) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const userScope = await getUserScope();
+        if (!userScope || !['superadmin', 'national'].includes(userScope.scope)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const id = parseInt(params.id);
         const body = await req.json();
 
         const { supportStatus, supportFrequency, supportAmount, enableReminder, status, notes } = body;
 
+        const existingSupport = await prisma.financialsupport.findUnique({ where: { id } });
+        if (!existingSupport) {
+            return NextResponse.json(
+                { error: 'Financial support record not found' },
+                { status: 404 }
+            );
+        }
+
         // Recalculate next reminder date if frequency changed or reminder enabled
-        let updateData: any = {
+        const updateData: any = {
             ...(supportStatus && { supportStatus }),
             ...(supportFrequency !== undefined && { supportFrequency }),
             ...(supportAmount !== undefined && { supportAmount }),
@@ -77,8 +103,11 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         };
 
         // If reminder settings changed, recalculate next reminder date
-        if (enableReminder && supportFrequency) {
-            updateData.nextReminderDate = calculateNextReminderDate(supportFrequency);
+        const nextFrequency = supportFrequency ?? existingSupport.supportFrequency;
+        const nextEnableReminder = enableReminder ?? existingSupport.enableReminder;
+
+        if (nextEnableReminder && nextFrequency) {
+            updateData.nextReminderDate = calculateNextReminderDate(nextFrequency);
         } else if (enableReminder === false) {
             updateData.nextReminderDate = null;
         }
@@ -100,7 +129,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
             }
         });
 
-        return NextResponse.json(financialSupport);
+        await cacheDel('financial-support:*');
+        return NextResponse.json(toJsonSafe(financialSupport));
 
     } catch (error) {
         console.error('Error updating financial support:', error);

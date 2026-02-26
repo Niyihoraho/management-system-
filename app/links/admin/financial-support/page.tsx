@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, DollarSign, AlertCircle, MoreVertical } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, DollarSign, AlertCircle, MoreVertical, X } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import {
     Breadcrumb,
@@ -51,6 +51,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
+
+interface EligibleGraduate {
+    id: number;
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+    residenceProvince: string | null;
+    profession: string | null;
+}
 
 interface FinancialSupport {
     id: number;
@@ -73,13 +83,13 @@ interface FinancialSupport {
 const statusLabels: Record<string, string> = {
     want_to_support: 'Want to Support',
     already_supporting: 'Already Supporting',
-    later: 'Decided Later',
+    later: 'Undecided',
 };
 
 const statusColors: Record<string, string> = {
     want_to_support: 'bg-blue-100 text-blue-800',
     already_supporting: 'bg-green-100 text-green-800',
-    later: 'bg-gray-100 text-gray-800',
+    later: 'bg-yellow-100 text-yellow-800',
 };
 
 const frequencyLabels: Record<string, string> = {
@@ -95,8 +105,76 @@ export default function FinancialSupportPage() {
     const [error, setError] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState('all');
 
+    // Add Supporter modal state
+    const [addModalOpen, setAddModalOpen] = useState(false);
+    const [eligibleGraduates, setEligibleGraduates] = useState<EligibleGraduate[]>([]);
+    const [graduateSearch, setGraduateSearch] = useState('');
+    const [selectedGraduate, setSelectedGraduate] = useState<EligibleGraduate | null>(null);
+    const [supportStatus, setSupportStatus] = useState('later');
+    const [supportFrequency, setSupportFrequency] = useState('');
+    const [supportAmount, setSupportAmount] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [graduatesLoading, setGraduatesLoading] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editingSupport, setEditingSupport] = useState<FinancialSupport | null>(null);
+    const [editSupportStatus, setEditSupportStatus] = useState('later');
+    const [editSupportFrequency, setEditSupportFrequency] = useState('');
+    const [editSupportAmount, setEditSupportAmount] = useState('');
+    const [editEnableReminder, setEditEnableReminder] = useState(false);
+    const [editSubmitting, setEditSubmitting] = useState(false);
+    const [remindingSupportId, setRemindingSupportId] = useState<number | null>(null);
+
+    const requiresCommitment = supportStatus === 'want_to_support' || supportStatus === 'already_supporting';
+    const editRequiresCommitment = editSupportStatus === 'want_to_support' || editSupportStatus === 'already_supporting';
+    const normalizedAmount = supportAmount.trim();
+    const isAddFormValid = Boolean(
+        selectedGraduate &&
+        supportStatus &&
+        (!requiresCommitment || (supportFrequency && normalizedAmount))
+    );
+
+    const resetAddModalForm = () => {
+        setSelectedGraduate(null);
+        setGraduateSearch('');
+        setSupportStatus('later');
+        setSupportFrequency('');
+        setSupportAmount('');
+        setSubmitError(null);
+    };
+
+    const closeAddModal = () => {
+        if (submitting) return;
+        setAddModalOpen(false);
+        resetAddModalForm();
+    };
+
+    const openEditModal = (support: FinancialSupport) => {
+        setEditingSupport(support);
+        setEditSupportStatus(support.supportStatus || 'later');
+        setEditSupportFrequency(support.supportFrequency || '');
+        setEditSupportAmount(support.supportAmount || '');
+        setEditEnableReminder(Boolean(support.enableReminder));
+        setEditModalOpen(true);
+    };
+
+    const closeEditModal = () => {
+        if (editSubmitting) return;
+        setEditModalOpen(false);
+        setEditingSupport(null);
+    };
+
+    const handleSupportStatusChange = (value: string) => {
+        setSupportStatus(value);
+        setSubmitError(null);
+        if (value === 'later') {
+            setSupportFrequency('');
+            setSupportAmount('');
+        }
+    };
+
     // Fetch financial supports
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
@@ -117,19 +195,138 @@ export default function FinancialSupportPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [statusFilter, searchTerm]);
 
     // Load data on mount and when filters change
     useEffect(() => {
         fetchData();
     }, [statusFilter]);
 
+    // Open add modal and fetch eligible graduates
+    const openAddModal = async () => {
+        setAddModalOpen(true);
+        resetAddModalForm();
+        setGraduatesLoading(true);
+        try {
+            const res = await axios.get('/api/financial-support/eligible-graduates');
+            setEligibleGraduates(res.data.graduates || []);
+        } catch {
+            setEligibleGraduates([]);
+            setSubmitError('Failed to load eligible graduates. Please retry.');
+            toast.error('Failed to load eligible graduates.');
+        } finally {
+            setGraduatesLoading(false);
+        }
+    };
+
+    const handleAddSupporter = async () => {
+        if (!selectedGraduate) {
+            setSubmitError('Please select a graduate.');
+            toast.error('Please select a graduate.');
+            return;
+        }
+        if (!supportStatus) {
+            setSubmitError('Please select a support status.');
+            toast.error('Please select a support status.');
+            return;
+        }
+        if (requiresCommitment && !supportFrequency) {
+            setSubmitError('Please choose support frequency.');
+            toast.error('Support frequency is required.');
+            return;
+        }
+        if (requiresCommitment && !normalizedAmount) {
+            setSubmitError('Please enter support amount.');
+            toast.error('Support amount is required.');
+            return;
+        }
+
+        setSubmitting(true);
+        setSubmitError(null);
+        try {
+            await axios.post('/api/financial-support', {
+                graduateId: selectedGraduate.id,
+                supportStatus,
+                supportFrequency: requiresCommitment ? supportFrequency : null,
+                supportAmount: requiresCommitment ? normalizedAmount : null,
+                enableReminder: false,
+            });
+            toast.success(`${selectedGraduate.fullName} added successfully.`);
+            closeAddModal();
+            await fetchData();
+        } catch (err: any) {
+            const message = err?.response?.data?.error || 'Failed to add supporter. Please try again.';
+            setSubmitError(message);
+            toast.error(message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleUpdateSupport = async () => {
+        if (!editingSupport) return;
+
+        if (!editSupportStatus) {
+            toast.error('Please select a support status.');
+            return;
+        }
+        if (editRequiresCommitment && !editSupportFrequency) {
+            toast.error('Support frequency is required.');
+            return;
+        }
+        if (editRequiresCommitment && !editSupportAmount.trim()) {
+            toast.error('Support amount is required.');
+            return;
+        }
+        if (editEnableReminder && !editSupportFrequency) {
+            toast.error('Select support frequency to enable reminders.');
+            return;
+        }
+
+        setEditSubmitting(true);
+        try {
+            await axios.patch(`/api/financial-support/${editingSupport.id}`, {
+                supportStatus: editSupportStatus,
+                supportFrequency: editRequiresCommitment ? editSupportFrequency : null,
+                supportAmount: editRequiresCommitment ? editSupportAmount.trim() : null,
+                enableReminder: editEnableReminder,
+            });
+            toast.success('Financial support details updated.');
+            closeEditModal();
+            await fetchData();
+        } catch (err: any) {
+            const message = err?.response?.data?.error || 'Failed to update supporter details.';
+            toast.error(message);
+        } finally {
+            setEditSubmitting(false);
+        }
+    };
+
+    const handleSendReminder = async (support: FinancialSupport) => {
+        setRemindingSupportId(support.id);
+        try {
+            const response = await axios.post(`/api/financial-support/${support.id}/reminder`);
+            toast.success(response?.data?.message || 'Reminder sent successfully.');
+            await fetchData();
+        } catch (err: any) {
+            const message = err?.response?.data?.error || 'Failed to send reminder.';
+            toast.error(message);
+        } finally {
+            setRemindingSupportId(null);
+        }
+    };
+
+    // Filter eligible graduates by search
+    const filteredEligible = eligibleGraduates.filter(g => {
+        if (!graduateSearch) return true;
+        const q = graduateSearch.toLowerCase();
+        return g.fullName.toLowerCase().includes(q) || g.email?.toLowerCase().includes(q) || g.phone?.includes(graduateSearch);
+    });
+
     // Filter locally by search term
     const filteredSupports = financialSupports.filter(support => {
         if (!searchTerm) return true;
-
         const searchLower = searchTerm.toLowerCase();
-
         return (
             support.graduate.fullName?.toLowerCase().includes(searchLower) ||
             support.graduate.email?.toLowerCase().includes(searchLower) ||
@@ -138,6 +335,7 @@ export default function FinancialSupportPage() {
     });
 
     return (
+        <>
         <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
@@ -198,10 +396,10 @@ export default function FinancialSupportPage() {
                                         <SelectValue placeholder="Filter by status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">All Supporters</SelectItem>
+                                        <SelectItem value="all">All Graduates</SelectItem>
+                                        <SelectItem value="later">Undecided</SelectItem>
                                         <SelectItem value="want_to_support">Want to Support</SelectItem>
                                         <SelectItem value="already_supporting">Already Supporting</SelectItem>
-                                        <SelectItem value="later">Decided Later</SelectItem>
                                     </SelectContent>
                                 </Select>
 
@@ -218,7 +416,7 @@ export default function FinancialSupportPage() {
 
                             {/* Add New Supporter Button */}
                             <Button
-                                onClick={() => {/* TODO: Open add supporter modal */ }}
+                                onClick={openAddModal}
                                 className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 shadow-sm text-sm sm:text-base"
                             >
                                 <Plus className="w-4 h-4" />
@@ -337,11 +535,14 @@ export default function FinancialSupportPage() {
                                                                     </DropdownMenuTrigger>
                                                                     <DropdownMenuContent align="end">
                                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                        <DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => openEditModal(support)}>
                                                                             <Edit className="mr-2 h-4 w-4" /> Edit Details
                                                                         </DropdownMenuItem>
                                                                         <DropdownMenuSeparator />
-                                                                        <DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => handleSendReminder(support)}
+                                                                            disabled={remindingSupportId === support.id}
+                                                                        >
                                                                             <DollarSign className="mr-2 h-4 w-4 text-green-600" /> Send Reminder
                                                                         </DropdownMenuItem>
                                                                     </DropdownMenuContent>
@@ -360,5 +561,250 @@ export default function FinancialSupportPage() {
                 </div>
             </SidebarInset>
         </SidebarProvider>
+
+        {/* Add Supporter Modal */}
+    <Dialog
+        open={addModalOpen}
+        onOpenChange={(open) => {
+            if (!open) {
+                closeAddModal();
+                return;
+            }
+            setAddModalOpen(true);
+        }}
+    >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+                <DialogTitle>Add Financial Supporter</DialogTitle>
+                <DialogDescription>Select a graduate and set their support details.</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+                {/* Graduate Picker */}
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Graduate</label>
+                    {selectedGraduate ? (
+                        <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                            <div>
+                                <p className="font-medium text-sm">{selectedGraduate.fullName}</p>
+                                <p className="text-xs text-muted-foreground">{selectedGraduate.email || selectedGraduate.phone}</p>
+                            </div>
+                            <button onClick={() => setSelectedGraduate(null)} className="text-muted-foreground hover:text-foreground">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="border rounded-lg overflow-hidden">
+                            <div className="relative p-2 border-b">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    placeholder="Search graduates..."
+                                    value={graduateSearch}
+                                    onChange={e => {
+                                        setGraduateSearch(e.target.value);
+                                        setSubmitError(null);
+                                    }}
+                                    className="w-full pl-8 pr-3 py-1.5 text-sm bg-transparent outline-none"
+                                />
+                            </div>
+                            <div className="max-h-48 overflow-y-auto">
+                                {graduatesLoading ? (
+                                    <div className="flex items-center justify-center py-6 text-muted-foreground text-sm"><RefreshCw className="w-4 h-4 animate-spin mr-2" />Loading...</div>
+                                ) : filteredEligible.length === 0 ? (
+                                    <div className="text-center py-6 text-sm text-muted-foreground">No eligible graduates found</div>
+                                ) : (
+                                    filteredEligible.map(g => (
+                                        <button
+                                            key={g.id}
+                                            onClick={() => {
+                                                setSelectedGraduate(g);
+                                                setSubmitError(null);
+                                            }}
+                                            className="w-full text-left px-3 py-2.5 hover:bg-muted/50 border-b last:border-b-0 transition-colors"
+                                        >
+                                            <p className="text-sm font-medium">{g.fullName}</p>
+                                            <p className="text-xs text-muted-foreground">{g.email || g.phone || g.residenceProvince || '—'}</p>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Support Status */}
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Support Status</label>
+                    <Select value={supportStatus} onValueChange={handleSupportStatusChange}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="later">Undecided (decide later)</SelectItem>
+                            <SelectItem value="want_to_support">Want to Support</SelectItem>
+                            <SelectItem value="already_supporting">Already Supporting</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {/* Frequency — only when committing */}
+                {requiresCommitment && (
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Frequency</label>
+                            <Select
+                                value={supportFrequency}
+                                onValueChange={(value) => {
+                                    setSupportFrequency(value);
+                                    setSubmitError(null);
+                                }}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select frequency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="monthly">Monthly</SelectItem>
+                                    <SelectItem value="half_year">Semi-Annual</SelectItem>
+                                    <SelectItem value="full_year">Yearly</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Amount</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. 10,000 RWF"
+                                value={supportAmount}
+                                onChange={e => {
+                                    setSupportAmount(e.target.value);
+                                    setSubmitError(null);
+                                }}
+                                className="w-full px-3 py-2 text-sm border rounded-md bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Error */}
+                {submitError && (
+                    <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 rounded-md px-3 py-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        {submitError}
+                    </div>
+                )}
+            </div>
+
+            <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={closeAddModal} disabled={submitting}>Cancel</Button>
+                <Button onClick={handleAddSupporter} disabled={submitting || !isAddFormValid}>
+                    {submitting ? <><RefreshCw className="w-4 h-4 animate-spin mr-2" />Saving...</> : 'Add Supporter'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    {/* Edit Supporter Modal */}
+    <Dialog
+        open={editModalOpen}
+        onOpenChange={(open) => {
+            if (!open) {
+                closeEditModal();
+                return;
+            }
+            setEditModalOpen(true);
+        }}
+    >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+                <DialogTitle>Edit Financial Support</DialogTitle>
+                <DialogDescription>
+                    {editingSupport ? `Update support details for ${editingSupport.graduate.fullName}.` : 'Update support details.'}
+                </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Support Status</label>
+                    <Select
+                        value={editSupportStatus}
+                        onValueChange={(value) => {
+                            setEditSupportStatus(value);
+                            if (value === 'later') {
+                                setEditSupportFrequency('');
+                                setEditSupportAmount('');
+                                setEditEnableReminder(false);
+                            }
+                        }}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="later">Undecided (decide later)</SelectItem>
+                            <SelectItem value="want_to_support">Want to Support</SelectItem>
+                            <SelectItem value="already_supporting">Already Supporting</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {editRequiresCommitment && (
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Frequency</label>
+                            <Select value={editSupportFrequency} onValueChange={setEditSupportFrequency}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select frequency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="monthly">Monthly</SelectItem>
+                                    <SelectItem value="half_year">Semi-Annual</SelectItem>
+                                    <SelectItem value="full_year">Yearly</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Amount</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. 10,000 RWF"
+                                value={editSupportAmount}
+                                onChange={(e) => setEditSupportAmount(e.target.value)}
+                                className="w-full px-3 py-2 text-sm border rounded-md bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Reminder</label>
+                    <Select
+                        value={editEnableReminder ? 'enabled' : 'disabled'}
+                        onValueChange={(value) => setEditEnableReminder(value === 'enabled')}
+                        disabled={!editRequiresCommitment || !editSupportFrequency}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select reminder setting" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="enabled">Enabled</SelectItem>
+                            <SelectItem value="disabled">Disabled</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {(!editRequiresCommitment || !editSupportFrequency) && (
+                        <p className="text-xs text-muted-foreground">Choose status and frequency to enable reminders.</p>
+                    )}
+                </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={closeEditModal} disabled={editSubmitting}>Cancel</Button>
+                <Button onClick={handleUpdateSupport} disabled={editSubmitting}>
+                    {editSubmitting ? <><RefreshCw className="w-4 h-4 animate-spin mr-2" />Saving...</> : 'Save Changes'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    </>
     );
 }

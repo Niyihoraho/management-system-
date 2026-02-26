@@ -295,7 +295,6 @@ export function UserRoleForm({ userId, userName, onSuccess, onCancel }: UserRole
                     <SelectValue placeholder="Select region (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {console.log('Rendering regions in user-role-form:', regions)}
                     <SelectItem value="">No region</SelectItem>
                     {regions.map((region) => (
                       <SelectItem key={region.id} value={region.id.toString()}>

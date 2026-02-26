@@ -127,6 +127,12 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
     const [success, setSuccess] = useState(false);
 
     const [step, setStep] = useState(1);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
 
     // Removed generic <GraduateFormValues> to let inference handle the resolver types
     const form = useForm({
@@ -297,6 +303,10 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
             setSubmitting(false);
         }
     };
+
+    if (!isMounted) {
+        return null;
+    }
 
     if (duplicateModal.isOpen) {
         return (

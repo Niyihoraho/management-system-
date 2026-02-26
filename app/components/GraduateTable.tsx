@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 interface Graduate {
   id: number;
   fullName: string;
+  sex: string | null;
   phone: string | null;
   email: string | null;
   university: string | null;
@@ -30,10 +31,8 @@ interface Graduate {
   financialSupport: boolean;
   graduateGroupId: number;
   status: string;
-  regionId?: number | null;
   createdAt: string;
   updatedAt: string;
-  region?: { name: string } | null;
   graduateGroup: { name: string };
 }
 
@@ -81,7 +80,7 @@ export default function GraduateTable({
       graduate.phone?.includes(searchTerm) ||
       graduate.university?.toLowerCase().includes(searchLower) ||
       graduate.course?.toLowerCase().includes(searchLower) ||
-      graduate.region?.name?.toLowerCase().includes(searchLower) ||
+
       graduate.graduateGroup?.name?.toLowerCase().includes(searchLower) ||
       graduate.status?.toLowerCase().includes(searchLower)
     );
@@ -197,7 +196,14 @@ export default function GraduateTable({
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium text-sm">{graduate.fullName}</p>
+                            <p className="font-medium text-sm">
+                              {graduate.fullName}
+                              {graduate.sex && (
+                                <Badge variant="outline" className="ml-2 text-[10px] h-5 px-2">
+                                  {graduate.sex.charAt(0).toUpperCase() + graduate.sex.slice(1).toLowerCase()}
+                                </Badge>
+                              )}
+                            </p>
                             <p className="text-xs text-muted-foreground">ID: {graduate.id}</p>
                           </div>
                         </div>

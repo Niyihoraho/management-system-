@@ -69,7 +69,7 @@ export function AssignGroupModal({
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>
-                        Select a small group for this student.
+                        Select a group for this member.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">

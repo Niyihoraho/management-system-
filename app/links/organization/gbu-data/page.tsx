@@ -80,7 +80,7 @@ interface University {
 
 export default function GBUDataPage() {
     const router = useRouter();
-    const { userRole, isLoading: roleLoading } = useRoleAccess();
+    const { userRole, userScope, isLoading: roleLoading } = useRoleAccess();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRegion, setSelectedRegion] = useState<string>("all");
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -103,6 +103,8 @@ export default function GBUDataPage() {
         name: ''
     });
     const [deleting, setDeleting] = useState(false);
+    const canManageRecords = userRole === 'superadmin' || userRole === 'national' || userRole === 'region';
+    const canSelectRegion = userRole !== 'university';
 
     const fetchData = async () => {
         try {
@@ -136,13 +138,17 @@ export default function GBUDataPage() {
     useEffect(() => {
         if (roleLoading) return;
 
-        if (!userRole || !['superadmin', 'national', 'region'].includes(userRole)) {
+        if (!userRole || !['superadmin', 'national', 'region', 'university'].includes(userRole)) {
             router.replace('/dashboard');
             return;
         }
 
+        if (userRole === 'university' && userScope?.regionId) {
+            setSelectedRegion(String(userScope.regionId));
+        }
+
         fetchData();
-    }, [roleLoading, router, selectedYear, selectedRegion, userRole]); // Refetch when filters change
+    }, [roleLoading, router, selectedYear, selectedRegion, userRole, userScope?.regionId]); // Refetch when filters change
 
     // Create Handler
     const handleCreate = async (formData: any) => {
@@ -279,12 +285,13 @@ export default function GBUDataPage() {
                                     <Select
                                         value={selectedRegion}
                                         onValueChange={setSelectedRegion}
+                                        disabled={!canSelectRegion}
                                     >
                                         <SelectTrigger className="w-full">
                                             <SelectValue placeholder="All Regions" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">All Regions</SelectItem>
+                                            {canSelectRegion && <SelectItem value="all">All Regions</SelectItem>}
                                             {regions.map((region) => (
                                                 <SelectItem key={region.id} value={region.id.toString()}>
                                                     {region.name}
@@ -295,14 +302,16 @@ export default function GBUDataPage() {
                                 </div>
 
                                 {/* Add Button */}
-                                <Button
-                                    onClick={() => setIsFormOpen(true)}
-                                    className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all shadow-sm text-sm"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Add Record</span>
-                                    <span className="sm:hidden">Add</span>
-                                </Button>
+                                {canManageRecords && (
+                                    <Button
+                                        onClick={() => setIsFormOpen(true)}
+                                        className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all shadow-sm text-sm"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Add Record</span>
+                                        <span className="sm:hidden">Add</span>
+                                    </Button>
+                                )}
                             </div>
                         </div>
 
@@ -334,13 +343,13 @@ export default function GBUDataPage() {
                                                 <TableHead className="font-semibold text-center">Students in DG</TableHead>
                                                 <TableHead className="font-semibold text-center">Joined This Year</TableHead>
                                                 <TableHead className="font-semibold text-center">Saved</TableHead>
-                                                <TableHead className="text-right font-semibold">Actions</TableHead>
+                                                {canManageRecords && <TableHead className="text-right font-semibold">Actions</TableHead>}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {filteredData.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                                                    <TableCell colSpan={canManageRecords ? 9 : 8} className="text-center py-12 text-muted-foreground">
                                                         <div className="flex flex-col items-center gap-2">
                                                             <Package className="w-12 h-12 text-muted-foreground/50" />
                                                             <p>No records found for {selectedYear} {selectedRegion !== "all" ? "in this region" : ""}.</p>
@@ -372,28 +381,30 @@ export default function GBUDataPage() {
                                                         <TableCell className="text-center">{item.studentsInDiscipleship}</TableCell>
                                                         <TableCell className="text-center font-bold text-primary">{item.joinedThisYear}</TableCell>
                                                         <TableCell className="text-center">{item.savedStudents}</TableCell>
-                                                        <TableCell className="text-right">
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                                        <MoreVertical className="w-4 h-4" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end">
-                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                    <DropdownMenuItem onClick={() => setEditingData(item)}>
-                                                                        <Edit className="mr-2 h-4 w-4" /> Edit Details
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem
-                                                                        onClick={() => setDeleteModal({ isOpen: true, id: item.id, name: item.university.name })}
-                                                                        className="text-red-600 focus:text-red-600"
-                                                                    >
-                                                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                                                    </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        </TableCell>
+                                                        {canManageRecords && (
+                                                            <TableCell className="text-right">
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                            <MoreVertical className="w-4 h-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                        <DropdownMenuItem onClick={() => setEditingData(item)}>
+                                                                            <Edit className="mr-2 h-4 w-4" /> Edit Details
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => setDeleteModal({ isOpen: true, id: item.id, name: item.university.name })}
+                                                                            className="text-red-600 focus:text-red-600"
+                                                                        >
+                                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </TableCell>
+                                                        )}
                                                     </TableRow>
                                                 ))
                                             )}

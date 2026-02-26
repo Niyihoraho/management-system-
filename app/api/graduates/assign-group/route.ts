@@ -98,14 +98,15 @@ export async function PUT(request: NextRequest) {
             }
         });
 
-        // Serialize BigInts
+        // Serialize BigInts — destructure relations out before spreading to avoid raw BigInt fields
+        const { graduatesmallgroup, ...graduateRest } = updatedGraduate;
         const serialized = {
-            ...updatedGraduate,
-            provinceId: updatedGraduate.provinceId?.toString(),
-            graduateGroup: updatedGraduate.graduatesmallgroup ? {
-                ...updatedGraduate.graduatesmallgroup,
-                provinceId: updatedGraduate.graduatesmallgroup.provinceId?.toString()
-            } : null
+            ...graduateRest,
+            provinceId: graduateRest.provinceId?.toString() ?? null,
+            graduateGroup: graduatesmallgroup ? {
+                ...graduatesmallgroup,
+                provinceId: graduatesmallgroup.provinceId?.toString() ?? null,
+            } : null,
         };
 
         return NextResponse.json(serialized, { status: 200 });

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban, Sparkles } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import GraduateForm from "@/app/components/GraduateForm";
 import { AssignGroupModal } from "@/components/AssignGroupModal";
@@ -55,42 +55,41 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface Graduate {
     id: number;
     fullName: string;
+    sex: 'Male' | 'Female' | null;
     phone: string | null;
     email: string | null;
     university: string | null;
     course: string | null;
+    profession?: string | null;
     graduationYear: number | null;
     isDiaspora: boolean;
+    servingPillars: string[];
     residenceProvince: string | null;
     residenceDistrict: string | null;
     residenceSector: string | null;
 
 
     enableReminder?: boolean;
+    noCellAvailable?: boolean;
     status: string;
-    regionId: number | null;
-    provinceId: string | null; // BigInt serialized as string from API? API returns string for BigInt
+    provinceId: string | null;
     graduateGroupId: number | null;
     createdAt: string;
     updatedAt: string;
-    region?: { name: string };
     province?: { name: string; id: string };
     graduateGroup?: { name: string };
-}
-
-interface Region {
-    id: number;
-    name: string;
+    region?: { name: string };
 }
 
 interface GraduateSmallGroup {
     id: number;
     name: string;
-    regionId: number;
+    provinceId: string | null;
 }
 
 const graduateStatusLabels: Record<string, string> = {
@@ -103,12 +102,37 @@ const graduateStatusColors: Record<string, string> = {
     inactive: 'bg-gray-100 text-gray-800',
 };
 
+const pillarLabels: Record<string, string> = {
+    mobilization_integration: 'Mobilization & Integration',
+    capacity_building: 'Capacity Building',
+    event_planning_management: 'Event Planning & Management',
+    graduate_cell_management: 'Graduate Cell Management',
+    social_cohesion_promotion: 'Social Cohesion Promotion',
+    prayer_promotion: 'Prayer Promotion',
+    database_management: 'Database Management',
+};
+
+const NEW_CELL_BADGE_DAYS = 15;
+
+const shouldShowNewCellBadge = (graduate: Graduate) => {
+    if (graduate.isDiaspora) return false;
+    if (!graduate.noCellAvailable) return false;
+    if (!graduate.createdAt) return false;
+
+    const createdAtMs = new Date(graduate.createdAt).getTime();
+    if (Number.isNaN(createdAtMs)) return false;
+
+    const ageMs = Date.now() - createdAtMs;
+    return ageMs <= NEW_CELL_BADGE_DAYS * 24 * 60 * 60 * 1000;
+};
+
 export default function GraduatesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProvince, setSelectedProvince] = useState<string>("all");
     const [graduates, setGraduates] = useState<Graduate[]>([]);
     const [provinces, setProvinces] = useState<{ id: string; name: string }[]>([]);
     const [graduateGroups, setGraduateGroups] = useState<GraduateSmallGroup[]>([]);
+    const [assignableGroups, setAssignableGroups] = useState<GraduateSmallGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -141,22 +165,26 @@ export default function GraduatesPage() {
             setLoading(true);
             setError(null);
 
-            const [graduatesRes, groupsRes, provincesRes] = await Promise.all([
+            const [graduatesRes, provincesRes] = await Promise.all([
                 axios.get('/api/graduates'),
-                axios.get('/api/graduate-small-groups'),
                 axios.get('/api/provinces'),
             ]);
 
-            console.log('API Response - Graduates:', graduatesRes.data);
-            console.log('API Response - Groups:', groupsRes.data);
-            console.log('API Response - Provinces:', provincesRes.data);
+            // Graduate small groups are only accessible to superadmin/national — fail silently for others
+            let graduateGroupsData: GraduateSmallGroup[] = [];
+            try {
+                const groupsRes = await axios.get('/api/graduate-small-groups');
+                const rawGraduateGroups = (Array.isArray(groupsRes.data)
+                    ? groupsRes.data
+                    : groupsRes.data?.graduateGroups || []) as GraduateSmallGroup[];
+                graduateGroupsData = rawGraduateGroups;
+            } catch {
+                // Non-admin users get 403 — ignore, groups dropdown will be empty
+            }
 
             const graduatesData = (Array.isArray(graduatesRes.data)
                 ? graduatesRes.data
                 : graduatesRes.data?.graduates || []) as Graduate[];
-            const graduateGroupsData = (Array.isArray(groupsRes.data)
-                ? groupsRes.data
-                : groupsRes.data?.graduateGroups || []) as GraduateSmallGroup[];
             const provincesData = (Array.isArray(provincesRes.data)
                 ? provincesRes.data
                 : provincesRes.data?.provinces || []) as { id: string; name: string }[];
@@ -164,8 +192,8 @@ export default function GraduatesPage() {
             setGraduates(graduatesData);
             setGraduateGroups(graduateGroupsData);
             setProvinces(provincesData);
-        } catch (err) {
-            console.error('Error fetching data:', err);
+        } catch (err: any) {
+            console.error('Error fetching data:', err?.response?.data || err);
             setError('Failed to fetch graduates. Please try again.');
         } finally {
             setLoading(false);
@@ -233,7 +261,7 @@ export default function GraduatesPage() {
             closeDeleteModal();
         } catch (err) {
             console.error('Error deleting graduate:', err);
-            alert('Failed to delete graduate. Please try again.');
+            toast.error('Failed to delete graduate. Please try again.');
         } finally {
             setDeleting(false);
         }
@@ -250,17 +278,34 @@ export default function GraduatesPage() {
             console.error('Error updating status:', err);
             // Revert on error
             fetchData();
-            alert('Failed to update status');
+            toast.error('Failed to update status');
         }
     };
 
     // Group Assignment Logic
-    const openGroupAssignModal = (graduate: Graduate) => {
+    const openGroupAssignModal = async (graduate: Graduate) => {
+        const currentGroupId = graduate.graduateGroupId?.toString() || null;
         setGroupAssignModal({
             isOpen: true,
             graduateId: graduate.id,
-            currentGroupId: graduate.graduateGroupId?.toString() || null
+            currentGroupId,
         });
+
+        try {
+            if (!graduate.provinceId) {
+                setAssignableGroups([]);
+                return;
+            }
+
+            const groupsRes = await axios.get(`/api/graduate-small-groups?provinceId=${graduate.provinceId}`);
+            const rawGroups = (Array.isArray(groupsRes.data)
+                ? groupsRes.data
+                : groupsRes.data?.graduateGroups || []) as GraduateSmallGroup[];
+            setAssignableGroups(rawGroups as GraduateSmallGroup[]);
+        } catch (err) {
+            console.error('Error fetching province graduate groups:', err);
+            setAssignableGroups([]);
+        }
     };
 
     const handleAssignGroup = async (graduateId: number, groupId: string | null) => {
@@ -271,7 +316,7 @@ export default function GraduatesPage() {
             });
 
             // Update local state
-            const groupName = graduateGroups.find(g => g.id.toString() === groupId)?.name || 'No Group';
+            const groupName = assignableGroups.find(g => g.id.toString() === groupId)?.name || 'No Group';
             setGraduates(prev => prev.map(g => {
                 if (g.id === graduateId) {
                     return {
@@ -285,9 +330,10 @@ export default function GraduatesPage() {
 
             // Close modal
             setGroupAssignModal(prev => ({ ...prev, isOpen: false }));
+            setAssignableGroups([]);
         } catch (err) {
             console.error('Error assigning group:', err);
-            alert('Failed to update group');
+            toast.error('Failed to update group');
         }
     };
 
@@ -448,8 +494,9 @@ export default function GraduatesPage() {
                                         <TableHeader>
                                             <TableRow className="bg-muted/50">
                                                 <TableHead className="font-semibold">Graduate</TableHead>
-                                                <TableHead className="font-semibold">Contact</TableHead>
                                                 <TableHead className="font-semibold">Education</TableHead>
+                                                <TableHead className="font-semibold">Serving Pillars</TableHead>
+                                                <TableHead className="font-semibold">Graduate Cell</TableHead>
                                                 <TableHead className="font-semibold">Location</TableHead>
                                                 <TableHead className="font-semibold">Status</TableHead>
                                                 <TableHead className="text-right font-semibold">Actions</TableHead>
@@ -458,7 +505,7 @@ export default function GraduatesPage() {
                                         <TableBody>
                                             {filteredGraduates.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                                         <div className="flex flex-col items-center gap-2">
                                                             <GraduationCap className="w-12 h-12 text-muted-foreground/50" />
                                                             <p>{searchTerm ? 'No graduates match your search' : 'No graduates found'}</p>
@@ -470,33 +517,35 @@ export default function GraduatesPage() {
                                                     <TableRow key={graduate.id} className="hover:bg-muted/50">
                                                         <TableCell>
                                                             <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                                                                     <span className="text-sm font-medium text-primary">
                                                                         {graduate.fullName.charAt(0).toUpperCase()}
                                                                     </span>
                                                                 </div>
-                                                                <div>
-                                                                    <p className="font-medium text-sm">{graduate.fullName}</p>
-                                                                    <p className="text-xs text-muted-foreground">ID: {graduate.id}</p>
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="font-medium text-sm">{graduate.fullName}</p>
+                                                                        {graduate.sex && (
+                                                                            <Badge variant="outline" className="text-[10px] h-4 px-1 py-0">
+                                                                                {graduate.sex}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex flex-col gap-0.5">
+                                                                        {graduate.email && (
+                                                                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{graduate.email}</p>
+                                                                        )}
+                                                                        {graduate.phone && (
+                                                                            <p className="text-xs text-muted-foreground">{graduate.phone}</p>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
                                                             <div className="space-y-1">
-                                                                {graduate.email && (
-                                                                    <p className="text-xs text-muted-foreground truncate max-w-[150px]">{graduate.email}</p>
-                                                                )}
-                                                                {graduate.phone && (
-                                                                    <p className="text-xs text-muted-foreground">{graduate.phone}</p>
-                                                                )}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="space-y-1">
-                                                                <p className="text-sm font-medium truncate max-w-[150px]">{graduate.university || 'N/A'}</p>
-                                                                {graduate.course && (
-                                                                    <p className="text-xs text-muted-foreground">{graduate.course}</p>
-                                                                )}
+                                                                <p className="text-sm font-medium truncate max-w-[180px]">Course: {graduate.course || 'N/A'}</p>
+                                                                <p className="text-xs text-muted-foreground truncate max-w-[180px]">Profession: {graduate.profession || 'N/A'}</p>
                                                                 {graduate.graduationYear && (
                                                                     <Badge variant="outline" className="text-xs">
                                                                         {graduate.graduationYear}
@@ -505,8 +554,30 @@ export default function GraduatesPage() {
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
+                                                            <div className="flex flex-wrap gap-1 max-w-[260px]">
+                                                                {graduate.servingPillars?.length ? (
+                                                                    graduate.servingPillars.map((pillar) => (
+                                                                        <Badge key={`${graduate.id}-${pillar}`} variant="outline" className="text-[11px]">
+                                                                            {pillarLabels[pillar] || pillar}
+                                                                        </Badge>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="text-xs text-muted-foreground">N/A</span>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
                                                             <div className="space-y-1">
-                                                                <p className="text-sm font-medium">{graduate.graduateGroup?.name || graduate.region?.name || 'N/A'}</p>
+                                                                <p className="text-sm font-medium">{graduate.graduateGroup?.name || 'Unassigned'}</p>
+                                                                {shouldShowNewCellBadge(graduate) && (
+                                                                    <Badge variant="secondary" className="text-xs w-fit gap-1">
+                                                                        <Sparkles className="w-3 h-3" /> New
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="space-y-1">
                                                                 {graduate.isDiaspora && (
                                                                     <Badge variant="secondary" className="text-xs">Diaspora</Badge>
                                                                 )}
@@ -597,17 +668,22 @@ export default function GraduatesPage() {
                     onClose={() => setEditingGraduate(null)}
                     onSubmit={handleUpdateGraduate}
                     title="Edit Graduate"
+                    showNewCellBadge={shouldShowNewCellBadge(editingGraduate)}
                     initialData={{
                         fullName: editingGraduate.fullName,
+                        sex: editingGraduate.sex || 'Male',
                         phone: editingGraduate.phone || '',
                         email: editingGraduate.email || '',
                         university: editingGraduate.university || '',
                         course: editingGraduate.course || '',
+                        profession: editingGraduate.profession || '',
                         graduationYear: editingGraduate.graduationYear?.toString() || '',
                         isDiaspora: editingGraduate.isDiaspora,
+                        servingPillars: editingGraduate.servingPillars || [],
                         residenceProvince: editingGraduate.residenceProvince || '',
                         residenceDistrict: editingGraduate.residenceDistrict || '',
                         residenceSector: editingGraduate.residenceSector || '',
+                        noCellAvailable: Boolean(editingGraduate.noCellAvailable),
 
 
                         graduateGroupId: editingGraduate.graduateGroupId?.toString() || '',
@@ -642,10 +718,13 @@ export default function GraduatesPage() {
 
             <AssignGroupModal
                 isOpen={groupAssignModal.isOpen}
-                onClose={() => setGroupAssignModal(prev => ({ ...prev, isOpen: false }))}
+                onClose={() => {
+                    setGroupAssignModal(prev => ({ ...prev, isOpen: false }));
+                    setAssignableGroups([]);
+                }}
                 entityId={groupAssignModal.graduateId}
                 currentGroupId={groupAssignModal.currentGroupId}
-                smallGroups={graduateGroups}
+                smallGroups={assignableGroups}
                 onAssign={handleAssignGroup}
                 title="Assign Graduate Group"
             />

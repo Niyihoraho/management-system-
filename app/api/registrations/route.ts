@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@/lib/generated/prisma';
+import { getPrismaClient } from '@/lib/prisma';
 import { getUserScope } from "@/lib/rls";
+
+const parseNumericId = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+};
 
 export async function GET(_req: Request) {
     try {
@@ -11,37 +19,9 @@ export async function GET(_req: Request) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        // Build where clause based on scope
-        const where: Prisma.registrationrequestWhereInput = { status: 'PENDING' };
-
-        if (userScope.scope === 'region' && userScope.regionId) {
-            where.invitationlink = {
-                regionId: userScope.regionId
-            };
-        } else if (userScope.scope === 'university' && userScope.universityId) {
-            // University Admins see requests from links associated with their university.
-            // Resolve link IDs first to avoid nested relation filter failures.
-            const links = await prisma.invitationlink.findMany({
-                where: {
-                    university: {
-                        some: {
-                            id: userScope.universityId,
-                        },
-                    },
-                },
-                select: { id: true },
-            });
-
-            if (links.length === 0) {
-                return NextResponse.json({ requests: [] });
-            }
-
-            where.invitationLinkId = {
-                in: links.map((link) => link.id),
-            };
-        } else if (userScope.scope === 'superadmin' || userScope.scope === 'national') {
-            // No filter needed
-        } else {
+        if (
+            !['superadmin', 'national', 'region', 'university'].includes(userScope.scope)
+        ) {
             // SmallGroup/GraduateGroup admins shouldn't see this list usually?
             // Or maybe they do. Let's return 403 for them to be safe if not intended.
             // But existing code allowed "admin" roles.
@@ -49,15 +29,46 @@ export async function GET(_req: Request) {
             return new NextResponse('Forbidden', { status: 403 });
         }
 
-        // Fetch pending requests
-        const requests = await prisma.registrationrequest.findMany({
-            where,
+        const preferPrimary = true;
+        const db = getPrismaClient('read', { preferPrimary });
+
+        // Fetch pending requests then apply scope-specific filtering.
+        // This keeps migration requests (without invitation links) visible to the right approvers.
+        const requestsRaw = await db.registrationrequest.findMany({
+            where: { status: 'PENDING' },
             orderBy: { createdAt: 'desc' },
+            take: 300,
             include: {
                 invitationlink: {
-                    select: { slug: true, description: true, regionId: true }
+                    select: {
+                        slug: true,
+                        description: true,
+                        regionId: true,
+                        university: { select: { id: true } },
+                    }
                 }
             }
+        });
+
+        const requests = requestsRaw.filter((request) => {
+            if (userScope.scope === 'superadmin' || userScope.scope === 'national') {
+                return true;
+            }
+
+            const payload = (request.payload ?? {}) as Record<string, unknown>;
+
+            if (userScope.scope === 'region' && userScope.regionId) {
+                const payloadRegionId = parseNumericId(payload.regionId);
+                return request.invitationlink?.regionId === userScope.regionId || payloadRegionId === userScope.regionId;
+            }
+
+            if (userScope.scope === 'university' && userScope.universityId) {
+                const payloadUniversityId = parseNumericId(payload.universityId);
+                const fromInvitation = request.invitationlink?.university?.some((u) => u.id === userScope.universityId);
+                return Boolean(fromInvitation) || payloadUniversityId === userScope.universityId;
+            }
+
+            return false;
         });
 
         return NextResponse.json({
