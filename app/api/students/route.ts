@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
         const newStudent = await prisma.student.create({
             data: {
                 fullName: data.fullName,
+                sex: data.sex as "Male" | "Female",
                 phone: handleEmptyValue(data.phone),
                 email: handleEmptyValue(data.email),
                 universityId: data.universityId as number,
@@ -348,6 +349,7 @@ export async function PUT(request: NextRequest) {
             where: { id: Number(id) },
             data: {
                 ...(data.fullName !== undefined && { fullName: data.fullName }),
+                ...(data.sex !== undefined && { sex: data.sex as "Male" | "Female" }),
                 ...(data.phone !== undefined && { phone: handleEmptyValue(data.phone) }),
                 ...(data.email !== undefined && { email: handleEmptyValue(data.email) }),
                 ...(data.universityId !== undefined && { universityId: data.universityId as number }),

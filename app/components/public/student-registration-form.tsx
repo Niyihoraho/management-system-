@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -18,11 +18,13 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-
-
+import { GBURGuidelines } from "./gbur-guidelines";
 
 const studentSchema = z.object({
     fullName: z.string().min(2, "Full name is required"),
+    sex: z.enum(["Male", "Female"], {
+        message: "Sex is required",
+    }),
     email: z.string().email("Invalid email address"),
     phone: z.string().min(10, "Phone number required"),
     universityId: z.string().min(1, "University is required"),
@@ -51,15 +53,95 @@ export function StudentRegistrationForm({ invitationId, universities = [], onSuc
     const [step, setStep] = useState(1);
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [provinces, setProvinces] = useState<{ id: string; name: string }[]>([]);
+    const [districts, setDistricts] = useState<{ id: string; name: string }[]>([]);
+    const [sectors, setSectors] = useState<{ id: string; name: string }[]>([]);
+    const [selectedProvinceId, setSelectedProvinceId] = useState('');
+    const [selectedDistrictId, setSelectedDistrictId] = useState('');
+    const [selectedSectorId, setSelectedSectorId] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const form = useForm<StudentFormValues>({
         resolver: zodResolver(studentSchema),
         defaultValues: {
+            sex: "Male",
             yearOfStudy: '1',
             course: '',
-            agreement: false
+            agreement: false,
+            province: '',
+            district: '',
+            sector: '',
         }
     });
+
+    useEffect(() => {
+        const fetchProvinces = async () => {
+            try {
+                const response = await axios.get('/api/locations?type=provinces');
+                setProvinces(Array.isArray(response.data) ? response.data : []);
+            } catch (error) {
+                console.error('Failed to fetch provinces', error);
+                toast.error('Failed to load provinces');
+            }
+        };
+
+        fetchProvinces();
+    }, []);
+
+    const handleProvinceChange = async (provinceId: string) => {
+        setSelectedProvinceId(provinceId);
+        setSelectedDistrictId('');
+        setSelectedSectorId('');
+        setDistricts([]);
+        setSectors([]);
+
+        const province = provinces.find((p) => p.id === provinceId);
+        form.setValue('province', province?.name || '', { shouldValidate: true });
+        form.setValue('district', '');
+        form.setValue('sector', '');
+        form.clearErrors(['district', 'sector']);
+
+        if (!provinceId) return;
+
+        try {
+            const response = await axios.get(`/api/locations?type=districts&parentId=${provinceId}`);
+            setDistricts(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+            console.error('Failed to fetch districts', error);
+            toast.error('Failed to load districts');
+        }
+    };
+
+    const handleDistrictChange = async (districtId: string) => {
+        setSelectedDistrictId(districtId);
+        setSelectedSectorId('');
+        setSectors([]);
+
+        const district = districts.find((d) => d.id === districtId);
+        form.setValue('district', district?.name || '', { shouldValidate: true });
+        form.setValue('sector', '');
+        form.clearErrors('sector');
+
+        if (!districtId) return;
+
+        try {
+            const response = await axios.get(`/api/locations?type=sectors&parentId=${districtId}`);
+            setSectors(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+            console.error('Failed to fetch sectors', error);
+            toast.error('Failed to load sectors');
+        }
+    };
+
+    const handleSectorChange = (sectorId: string) => {
+        setSelectedSectorId(sectorId);
+        const sector = sectors.find((s) => s.id === sectorId);
+        form.setValue('sector', sector?.name || '', { shouldValidate: true });
+    };
 
 
     // Duplicate Modal State
@@ -71,7 +153,7 @@ export function StudentRegistrationForm({ invitationId, universities = [], onSuc
     // Validations to check before moving to next step
     const nextStep = async () => {
         let fieldsToValidate: (keyof StudentFormValues)[] = [];
-        if (step === 1) fieldsToValidate = ["fullName", "email", "phone"];
+        if (step === 1) fieldsToValidate = ["fullName", "sex", "email", "phone"];
         if (step === 2) fieldsToValidate = ["universityId", "yearOfStudy", "course"];
         if (step === 3) fieldsToValidate = ["province", "district", "sector"];
 
@@ -139,6 +221,10 @@ export function StudentRegistrationForm({ invitationId, universities = [], onSuc
             setSubmitting(false);
         }
     };
+
+    if (!isMounted) {
+        return null;
+    }
 
     if (duplicateModal.isOpen) {
         return (
@@ -221,6 +307,20 @@ export function StudentRegistrationForm({ invitationId, universities = [], onSuc
                         </div>
 
                         <div className="space-y-2">
+                            <Label className="text-slate-900 font-semibold text-sm">Sex</Label>
+                            <Select onValueChange={(val) => form.setValue("sex", val as "Male" | "Female", { shouldValidate: true })} value={form.watch("sex")}>
+                                <SelectTrigger className="bg-slate-100 border-slate-400 text-slate-900 focus:ring-blue-600/20 focus:border-blue-600">
+                                    <SelectValue placeholder="Select sex" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-300 text-slate-900 shadow-lg rounded-xl">
+                                    <SelectItem value="Male">Male</SelectItem>
+                                    <SelectItem value="Female">Female</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {form.formState.errors.sex && <p className="text-xs text-red-600 font-medium">{form.formState.errors.sex.message}</p>}
+                        </div>
+
+                        <div className="space-y-2">
                             <Label className="text-slate-900 font-semibold text-sm">Phone Number</Label>
                             <Input {...form.register("phone")} placeholder="078..." className="bg-slate-50 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-blue-600/20 focus-visible:border-blue-600 transition-all duration-200 hover:border-slate-400" />
                             {form.formState.errors.phone && <p className="text-xs text-red-600 font-medium">{form.formState.errors.phone.message}</p>}
@@ -283,16 +383,14 @@ export function StudentRegistrationForm({ invitationId, universities = [], onSuc
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="space-y-2">
                             <Label className="text-slate-900 font-semibold text-sm">Place of Birth (Province)</Label>
-                            <Select onValueChange={(val) => form.setValue("province", val)} value={form.watch("province")}>
+                            <Select onValueChange={handleProvinceChange} value={selectedProvinceId}>
                                 <SelectTrigger className="bg-slate-100 border-slate-400 text-slate-900 focus:ring-blue-600/20 focus:border-blue-600">
                                     <SelectValue placeholder="Select Province" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white border-slate-300 text-slate-900 shadow-lg rounded-xl">
-                                    <SelectItem value="Kigali">Kigali City</SelectItem>
-                                    <SelectItem value="North">Northern Province</SelectItem>
-                                    <SelectItem value="South">Southern Province</SelectItem>
-                                    <SelectItem value="East">Eastern Province</SelectItem>
-                                    <SelectItem value="West">Western Province</SelectItem>
+                                    {provinces.map((province) => (
+                                        <SelectItem key={province.id} value={province.id}>{province.name}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                             {form.formState.errors.province && <p className="text-xs text-red-600 font-medium">{form.formState.errors.province.message}</p>}
@@ -300,13 +398,31 @@ export function StudentRegistrationForm({ invitationId, universities = [], onSuc
 
                         <div className="space-y-2">
                             <Label className="text-slate-900 font-semibold text-sm">District</Label>
-                            <Input {...form.register("district")} placeholder="District name" className="bg-slate-50 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-blue-600/20 focus-visible:border-blue-600 transition-all duration-200 hover:border-slate-400" />
+                            <Select onValueChange={handleDistrictChange} value={selectedDistrictId} disabled={!selectedProvinceId}>
+                                <SelectTrigger className="bg-slate-100 border-slate-400 text-slate-900 focus:ring-blue-600/20 focus:border-blue-600">
+                                    <SelectValue placeholder="Select District" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-300 text-slate-900 shadow-lg rounded-xl">
+                                    {districts.map((district) => (
+                                        <SelectItem key={district.id} value={district.id}>{district.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             {form.formState.errors.district && <p className="text-xs text-red-600 font-medium">{form.formState.errors.district.message}</p>}
                         </div>
 
                         <div className="space-y-2">
                             <Label className="text-slate-900 font-semibold text-sm">Sector</Label>
-                            <Input {...form.register("sector")} placeholder="Sector name" className="bg-slate-50 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-blue-600/20 focus-visible:border-blue-600 transition-all duration-200 hover:border-slate-400" />
+                            <Select onValueChange={handleSectorChange} value={selectedSectorId} disabled={!selectedDistrictId}>
+                                <SelectTrigger className="bg-slate-100 border-slate-400 text-slate-900 focus:ring-blue-600/20 focus:border-blue-600">
+                                    <SelectValue placeholder="Select Sector" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-300 text-slate-900 shadow-lg rounded-xl">
+                                    {sectors.map((sector) => (
+                                        <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             {form.formState.errors.sector && <p className="text-xs text-red-600 font-medium">{form.formState.errors.sector.message}</p>}
                         </div>
                     </div>
@@ -315,23 +431,32 @@ export function StudentRegistrationForm({ invitationId, universities = [], onSuc
                 {/* STEP 4: AGREEMENT & SUBMIT */}
                 {step === 4 && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-300 space-y-4 text-center">
-                            <h3 className="text-lg font-bold text-slate-900">Review & Submit</h3>
-                            <p className="text-slate-700 text-sm leading-relaxed">
-                                Please confirm that the information provided is accurate. This data will be treated with confidentiality.
-                            </p>
+                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-300 space-y-6 text-left">
+                            <div className="text-center mb-6">
+                                <h3 className="text-xl font-bold text-slate-900">GBUR Membership Agreement</h3>
+                                <p className="text-slate-600 text-sm mt-2">
+                                    Please read through our terms and values before registering as an effective member.
+                                </p>
+                            </div>
 
-                            <div className="flex items-start space-x-3 text-left bg-white p-4 rounded-lg border border-slate-300 shadow-sm">
+                            {/* Scrollable Guidelines Container */}
+                            <div className="bg-white border border-slate-200 rounded-lg p-5 h-80 overflow-y-auto shadow-inner">
+                                <GBURGuidelines />
+                            </div>
+
+                            <div className="flex items-start space-x-4 bg-white p-5 rounded-lg border border-slate-300 shadow-sm mt-4">
                                 <Checkbox
                                     id="agreement"
                                     checked={form.watch("agreement")}
                                     onCheckedChange={(c) => form.setValue("agreement", c as boolean)}
-                                    className="mt-1 border-slate-400 data-[state=checked]:bg-blue-600"
+                                    className="mt-1 flex-shrink-0 h-5 w-5 border-slate-400 data-[state=checked]:bg-blue-600"
                                 />
-                                <div className="space-y-1">
-                                    <Label htmlFor="agreement" className="font-medium text-slate-900 cursor-pointer">I Agree to the Terms</Label>
-                                    <p className="text-xs text-slate-600">I hereby declare that the details furnished above are true and correct.</p>
-                                    {form.formState.errors.agreement && <p className="text-xs text-red-600 font-medium">{form.formState.errors.agreement.message}</p>}
+                                <div className="space-y-2">
+                                    <Label htmlFor="agreement" className="font-bold text-slate-900 cursor-pointer text-base">My Commitment</Label>
+                                    <p className="text-sm text-slate-600 leading-relaxed">
+                                        Having known, thought over, and embraced the Doctrinal Basis, the Vision and Mission, and the Distinctives of GBUR, and having understood my benefits and responsibilities in the GBU, I hereby freely register as an Effective Member.
+                                    </p>
+                                    {form.formState.errors.agreement && <p className="text-sm text-red-600 font-bold">{form.formState.errors.agreement.message}</p>}
                                 </div>
                             </div>
                         </div>

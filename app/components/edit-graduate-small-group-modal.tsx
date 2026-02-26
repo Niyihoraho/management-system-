@@ -21,16 +21,9 @@ interface Province {
     name: string;
 }
 
-interface Region {
-    id: number;
-    name: string;
-}
-
 interface GraduateSmallGroup {
     id: number;
     name: string;
-    regionId?: number | null;
-    region?: { name: string } | null;
     provinceId?: string | null;
     province?: { id: string; name: string } | null;
 }
@@ -143,7 +136,6 @@ export function EditGraduateSmallGroupModal({ graduateSmallGroup, onGraduateSmal
                 },
                 body: JSON.stringify({
                     name: formData.name,
-                    regionId: null, // Explicitly disconnect from region
                     provinceId: formData.provinceId
                 })
             })

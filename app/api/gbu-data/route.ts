@@ -9,6 +9,8 @@ const gbuDataSchema = z.object({
     universityId: z.number(),
     year: z.number().int().min(2000).max(2100).default(new Date().getFullYear()),
     activeMembers: z.number().min(0),
+    maleMembers: z.number().min(0).default(0),
+    femaleMembers: z.number().min(0).default(0),
     cells: z.number().min(0),
     discipleshipGroups: z.number().min(0),
     studentsInDiscipleship: z.number().min(0),
@@ -19,7 +21,7 @@ export async function GET(request: Request) {
     try {
         const userScope = await getUserScope();
         if (!userScope) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        if (!['superadmin', 'national', 'region'].includes(userScope.scope)) {
+        if (!['superadmin', 'national', 'region', 'university'].includes(userScope.scope)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
@@ -38,11 +40,23 @@ export async function GET(request: Request) {
             where.university = { is: { regionId: userScope.regionId } };
         }
 
+        // Enforce scope-level filtering for university users
+        if (userScope.scope === 'university') {
+            if (!userScope.universityId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+            where.universityId = userScope.universityId;
+        }
+
         if (regionId) {
             const parsedRegionId = Number(regionId);
             if (Number.isNaN(parsedRegionId)) return NextResponse.json({ error: 'Invalid regionId' }, { status: 400 });
 
             if (userScope.scope === 'region' && userScope.regionId !== parsedRegionId) {
+                return NextResponse.json({ error: 'Access denied to requested region' }, { status: 403 });
+            }
+
+            if (userScope.scope === 'university' && userScope.regionId && userScope.regionId !== parsedRegionId) {
                 return NextResponse.json({ error: 'Access denied to requested region' }, { status: 403 });
             }
 
@@ -56,7 +70,8 @@ export async function GET(request: Request) {
         }
 
         const effectiveRegion = regionId ?? (userScope.scope === 'region' ? String(userScope.regionId ?? 'none') : 'all');
-        const cacheKey = `gbu-data:${userScope.userId}:${userScope.scope}:${effectiveRegion}:${year ?? 'all'}`;
+        const effectiveUniversity = userScope.scope === 'university' ? String(userScope.universityId ?? 'none') : 'all';
+        const cacheKey = `gbu-data:${userScope.userId}:${userScope.scope}:${effectiveRegion}:${effectiveUniversity}:${year ?? 'all'}`;
         if (!preferPrimary) {
             const cached = await cacheGet<any[]>(cacheKey);
             if (cached) return NextResponse.json(cached);

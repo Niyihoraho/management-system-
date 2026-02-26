@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { getUserScope, generateRLSConditions } from "@/lib/rls";
 import { z } from "zod";
 
+const toJsonSafe = <T>(value: T): T => {
+    return JSON.parse(
+        JSON.stringify(value, (_, v) => (typeof v === "bigint" ? v.toString() : v))
+    ) as T;
+};
+
 const updateStatusSchema = z.object({
     id: z.number().int().positive(),
     status: z.enum(['active', 'inactive']),
@@ -50,9 +56,6 @@ export async function PUT(request: NextRequest) {
 
         // Apply RLS check
         const rlsConditions = generateRLSConditions(userScope);
-        if (rlsConditions.regionId && existingGraduate.regionId !== rlsConditions.regionId) {
-            return NextResponse.json({ error: "Access denied" }, { status: 403 });
-        }
         if (rlsConditions.graduateGroupId && existingGraduate.graduateGroupId !== rlsConditions.graduateGroupId) {
             return NextResponse.json({ error: "Access denied" }, { status: 403 });
         }
@@ -66,7 +69,7 @@ export async function PUT(request: NextRequest) {
             },
         });
 
-        return NextResponse.json(updatedGraduate, { status: 200 });
+        return NextResponse.json(toJsonSafe(updatedGraduate), { status: 200 });
 
     } catch (error) {
         console.error("Error updating graduate status:", error);

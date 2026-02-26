@@ -37,6 +37,9 @@ export async function GET(request: NextRequest) {
         if (userScope.scope === 'region' && userScope.regionId) {
             where.id = userScope.regionId;
         }
+        if (userScope.scope === 'university' && userScope.regionId) {
+            where.id = userScope.regionId;
+        }
 
         const cacheKey = `regions:list:${userScope.userId}:${userScope.scope}:${userScope.regionId ?? 'all'}`;
         if (!preferPrimary) {

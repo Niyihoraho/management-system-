@@ -2,6 +2,9 @@ import { z } from "zod";
 
 export const createStudentSchema = z.object({
     fullName: z.string().min(1, "Full name is required").max(255, "Full name cannot exceed 255 characters"),
+    sex: z.enum(["Male", "Female", "male", "female"]).transform((value) =>
+        value.toLowerCase() === "male" ? "Male" : "Female"
+    ),
     phone: z.string().max(20, "Phone cannot exceed 20 characters").optional().or(z.literal("")).or(z.null()),
     email: z.string().email("Invalid email").max(255).optional().or(z.literal("")).or(z.null()),
     universityId: z.union([

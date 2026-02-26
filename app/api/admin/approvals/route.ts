@@ -3,7 +3,17 @@ import { auth } from "@/lib/auth";
 import { getUserScope } from "@/lib/rls";
 import { prisma } from "@/lib/prisma";
 import { RegistrationStatus, RegistrationRequestType } from "@/lib/generated/prisma";
+import { cacheDel } from '@/lib/cache';
 import { z } from "zod";
+
+const parseNumericId = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() !== "") {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+};
 
 // Schema for approval action
 const actionSchema = z.object({
@@ -32,41 +42,16 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Build dynamic where clause based on user scope
-        let whereClause: any = {
-            status: RegistrationStatus.PENDING,
-        };
-
-        // Superadmin and National admins see all requests
-        if (userScope.scope === 'superadmin' || userScope.scope === 'national') {
-            // No additional filters
-        }
-        // Region admin sees only requests from their region
-        else if (userScope.scope === 'region' && userScope.regionId) {
-            whereClause.invitationlink = {
-                regionId: userScope.regionId,
-            };
-        }
-        // University admin sees only requests from their university
-        else if (userScope.scope === 'university' && userScope.universityId) {
-            whereClause.invitationlink = {
-                universities: {
-                    some: {
-                        id: userScope.universityId,
-                    },
-                },
-            };
-        }
         // Other scopes (smallgroup, graduatesmallgroup) don't have access to approvals
-        else {
+        if (!['superadmin', 'national', 'region', 'university'].includes(userScope.scope)) {
             return NextResponse.json(
                 { error: "Insufficient permissions" },
                 { status: 403 }
             );
         }
 
-        const requests = await prisma.registrationrequest.findMany({
-            where: whereClause,
+        const requestsRaw = await prisma.registrationrequest.findMany({
+            where: { status: RegistrationStatus.PENDING },
             include: {
                 invitationlink: {
                     include: {
@@ -78,6 +63,27 @@ export async function GET(request: NextRequest) {
             orderBy: {
                 createdAt: "desc",
             },
+        });
+
+        const requests = requestsRaw.filter((request) => {
+            if (userScope.scope === 'superadmin' || userScope.scope === 'national') {
+                return true;
+            }
+
+            const payload = (request.payload ?? {}) as Record<string, unknown>;
+
+            if (userScope.scope === 'region' && userScope.regionId) {
+                const payloadRegionId = parseNumericId(payload.regionId);
+                return request.invitationlink?.regionId === userScope.regionId || payloadRegionId === userScope.regionId;
+            }
+
+            if (userScope.scope === 'university' && userScope.universityId) {
+                const payloadUniversityId = parseNumericId(payload.universityId);
+                const fromInvitation = request.invitationlink?.university?.some((u) => u.id === userScope.universityId);
+                return Boolean(fromInvitation) || payloadUniversityId === userScope.universityId;
+            }
+
+            return false;
         });
 
         return NextResponse.json(requests);
@@ -138,13 +144,15 @@ export async function POST(request: NextRequest) {
         } else if (userScope.scope === 'region' && userScope.regionId) {
             // Region admin can only approve requests from their region
             const reg = registration as any;
-            hasAccess = reg.invitationlink?.regionId === userScope.regionId;
+            const payloadRegionId = parseNumericId(reg.payload?.regionId);
+            hasAccess = reg.invitationlink?.regionId === userScope.regionId || payloadRegionId === userScope.regionId;
         } else if (userScope.scope === 'university' && userScope.universityId) {
             // University admin can only approve requests from their university
             const reg = registration as any;
-            hasAccess = reg.invitationlink?.university.some(
+            const payloadUniversityId = parseNumericId(reg.payload?.universityId);
+            hasAccess = reg.invitationlink?.university?.some(
                 (u: any) => u.id === userScope.universityId
-            ) || false;
+            ) || payloadUniversityId === userScope.universityId || false;
         }
 
         if (!hasAccess) {
@@ -170,6 +178,7 @@ export async function POST(request: NextRequest) {
                     processedAt: new Date(),
                 },
             });
+            await cacheDel('registrations:*');
             return NextResponse.json({ message: "Request rejected" });
         }
 
@@ -201,7 +210,11 @@ export async function POST(request: NextRequest) {
             } else {
                 // Create Graduate
                 let provinceId = null;
-                const provinceName = payload.location?.province || payload.residence?.province;
+                const provinceName = payload.residenceProvince || payload.location?.province || payload.residence?.province;
+                const residenceDistrict = payload.residenceDistrict || payload.location?.district || payload.residence?.district;
+                const residenceSector = payload.residenceSector || payload.location?.sector || payload.residence?.sector;
+                const graduateGroupId = parseNumericId(payload.graduateGroupId);
+                const isNewCellMember = payload.attendGraduateCell === false || Boolean(payload.noCellAvailable);
 
                 if (provinceName) {
                     const province = await tx.province.findFirst({
@@ -221,15 +234,13 @@ export async function POST(request: NextRequest) {
                         course: payload.course,
                         graduationYear: Number(payload.graduationYear),
                         residenceProvince: provinceName,
-                        residenceDistrict: payload.location?.district || payload.residence?.district,
-                        residenceSector: payload.location?.sector || payload.residence?.sector,
+                        residenceDistrict,
+                        residenceSector,
                         isDiaspora: payload.isDiaspora || false,
                         servingPillars: payload.servingPillars || [],
                         status: "active",
-                        // GraduateGroup assignment logic needed?
-                        // For now, prompt implies "Self-Registration model".
-                        // We might need to auto-assign or let admin assign later.
-                        graduateGroupId: null, // Allow null
+                        graduateGroupId,
+                        noCellAvailable: isNewCellMember,
                         provinceId: provinceId,
                         updatedAt: new Date(),
                     },
@@ -245,6 +256,14 @@ export async function POST(request: NextRequest) {
                     processedAt: new Date(),
                 },
             });
+
+            await Promise.all([
+                cacheDel('graduates:list:*'),
+                cacheDel('graduates:*'),
+                cacheDel('financial-support:*'),
+                cacheDel('stats:*'),
+                cacheDel('registrations:*'),
+            ]);
 
             return NextResponse.json({ message: "Request approved", data: updated });
         });

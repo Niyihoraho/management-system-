@@ -6,18 +6,19 @@ import { Prisma } from "@/lib/generated/prisma";
 
 export async function GET(request: NextRequest) {
     try {
-        const userScope = await getUserScope();
-        if (!userScope) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        if (!["superadmin", "national"].includes(userScope.scope)) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-
         const { searchParams } = new URL(request.url);
         const provinceId = searchParams.get("provinceId"); // Changed from regionId
         const graduateGroupId = searchParams.get("graduateGroupId");
+
+        const userScope = await getUserScope();
+        const isPublicRequest = !userScope;
+
+        if (!isPublicRequest) {
+            // Block university and smallgroup — they don't deal with graduates
+            if (["university", "smallgroup"].includes(userScope.scope)) {
+                return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+            }
+        }
 
         // If specific graduateGroupId is provided, return that graduate small group
         if (graduateGroupId) {
@@ -47,12 +48,23 @@ export async function GET(request: NextRequest) {
 
         const where: Prisma.graduatesmallgroupWhereInput = {};
 
-        // Apply RLS conditions (Simplified for now as RLS might still return regionId)
-        // const rlsConditions = generateRLSConditions(userScope);
+        // Public callers (join form): only allow province-scoped read
+        if (isPublicRequest && !provinceId) {
+            return NextResponse.json({ error: "Province ID required" }, { status: 400 });
+        }
 
-        // Apply explicit province filter
+        // graduatesmallgroup-scoped users can only see their own group
+        if (!isPublicRequest && userScope.scope === "graduatesmallgroup" && userScope.graduateGroupId) {
+            where.id = userScope.graduateGroupId;
+        }
+
+        // Apply explicit province filter (superadmin/national/region can filter by province)
         if (provinceId) {
-            where.provinceId = BigInt(provinceId);
+            try {
+                where.provinceId = BigInt(provinceId);
+            } catch {
+                return NextResponse.json({ error: "Invalid provinceId" }, { status: 400 });
+            }
         }
 
         const graduatesmallgroups = await prisma.graduatesmallgroup.findMany({

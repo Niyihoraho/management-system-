@@ -24,8 +24,14 @@ export async function GET(request: NextRequest) {
       }
       case "districts": {
         if (!parentId) return NextResponse.json({ error: "Parent ID required" }, { status: 400 });
+        let parsedParentId: bigint;
+        try {
+          parsedParentId = BigInt(parentId);
+        } catch {
+          return NextResponse.json({ error: "Invalid parent ID" }, { status: 400 });
+        }
         const districts = await db.district.findMany({
-          where: { provinceId: BigInt(parentId) },
+          where: { province_id: parsedParentId },
           orderBy: { name: "asc" }
         });
         const result = districts.map(d => ({ id: d.id.toString(), name: d.name }));
@@ -34,8 +40,14 @@ export async function GET(request: NextRequest) {
       }
       case "sectors": {
         if (!parentId) return NextResponse.json({ error: "Parent ID required" }, { status: 400 });
+        let parsedParentId: bigint;
+        try {
+          parsedParentId = BigInt(parentId);
+        } catch {
+          return NextResponse.json({ error: "Invalid parent ID" }, { status: 400 });
+        }
         const sectors = await db.sector.findMany({
-          where: { districtId: BigInt(parentId) },
+          where: { district_id: parsedParentId },
           orderBy: { name: "asc" }
         });
         const result = sectors.map(s => ({ id: s.id.toString(), name: s.name }));

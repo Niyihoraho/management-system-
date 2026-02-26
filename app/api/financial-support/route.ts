@@ -4,6 +4,12 @@ import { auth } from '@/lib/auth';
 import { getUserScope } from '@/lib/rls';
 import { cacheGet, cacheSet, cacheDel } from '@/lib/cache';
 
+const toJsonSafe = <T>(value: T): T => {
+    return JSON.parse(
+        JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? v.toString() : v))
+    ) as T;
+};
+
 export async function GET(req: Request) {
     try {
         const session = await auth();
@@ -29,7 +35,7 @@ export async function GET(req: Request) {
         const cacheKey = `financial-support:${userScope.userId}:${userScope.scope}:${status ?? 'all'}:${provinceId ?? 'all'}:p${page}`;
         if (!preferPrimary && !search) {
             const cached = await cacheGet<any>(cacheKey);
-            if (cached) return NextResponse.json(cached);
+            if (cached) return NextResponse.json(toJsonSafe(cached));
         }
 
         const where: any = {};
@@ -75,11 +81,12 @@ export async function GET(req: Request) {
             financialSupports,
             pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
         };
+        const jsonSafeResult = toJsonSafe(result);
 
         if (!preferPrimary && !search) {
-            await cacheSet(cacheKey, result, { ttlSeconds: 120 });
+            await cacheSet(cacheKey, jsonSafeResult, { ttlSeconds: 120 });
         }
-        return NextResponse.json(result);
+        return NextResponse.json(jsonSafeResult);
     } catch (error) {
         console.error('Error fetching financial supports:', error);
         return NextResponse.json({ error: 'Failed to fetch financial supports' }, { status: 500 });

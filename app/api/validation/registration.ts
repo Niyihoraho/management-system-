@@ -40,6 +40,7 @@ const contactSchema = z.object({
 
 export const identitySchema = contactSchema.extend({
   type: z.enum(["student", "graduate"]),
+  sex: z.enum(["Male", "Female"]),
 });
 
 export const studentDetailsSchema = z.object({

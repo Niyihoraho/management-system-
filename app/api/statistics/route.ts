@@ -39,6 +39,14 @@ export async function GET(req: Request) {
                         gbuData: {
                             orderBy: { year: 'desc' },
                             take: 1
+                        },
+                        student: {
+                            select: {
+                                id: true,
+                                sex: true,
+                                status: true,
+                                createdAt: true
+                            }
                         }
                     }
                 },
@@ -61,6 +69,8 @@ export async function GET(req: Request) {
         const stats = regions.map(region => {
             // Aggregate GBU Data
             let activeMembers = 0;
+            let maleMembers = 0;
+            let femaleMembers = 0;
             let cells = 0;
             let discipleshipGroups = 0;
             let studentsInDiscipleship = 0;
@@ -69,7 +79,13 @@ export async function GET(req: Request) {
 
             const universityStats = region.university.map((uni: any) => {
                 const latestData = uni.gbuData[0] || {};
-                const uniMembers = latestData.activeMembers || 0;
+
+                // Calculate from actual student records instead of GBUData aggregate
+                const activeStudents = uni.student?.filter((s: any) => s.status === 'active') || [];
+                const uniMembers = activeStudents.length;
+                const uniMale = activeStudents.filter((s: any) => s.sex === 'Male').length;
+                const uniFemale = activeStudents.filter((s: any) => s.sex === 'Female').length;
+
                 const uniCells = latestData.cells || 0;
                 const uniGroups = latestData.discipleshipGroups || 0;
                 const uniStudents = latestData.studentsInDiscipleship || 0;
@@ -77,6 +93,8 @@ export async function GET(req: Request) {
                 const uniSaved = latestData.savedStudents || 0;
 
                 activeMembers += uniMembers;
+                maleMembers += uniMale;
+                femaleMembers += uniFemale;
                 cells += uniCells;
                 discipleshipGroups += uniGroups;
                 studentsInDiscipleship += uniStudents;
@@ -87,6 +105,8 @@ export async function GET(req: Request) {
                     id: uni.id,
                     name: uni.name,
                     activeMembers: uniMembers,
+                    maleMembers: uniMale,
+                    femaleMembers: uniFemale,
                     cells: uniCells,
                     discipleshipGroups: uniGroups,
                     studentsInDiscipleship: uniStudents,
@@ -153,6 +173,8 @@ export async function GET(req: Request) {
                 id: region.id,
                 name: region.name,
                 activeMembers,
+                maleMembers,
+                femaleMembers,
                 cells,
                 discipleshipGroups,
                 studentsInDiscipleship,

@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendRegistrationSubmittedEmail } from '@/lib/email';
 import { z } from 'zod';
 
 const submissionSchema = z.object({
     fullName: z.string(),
+    sex: z
+        .union([z.literal('Male'), z.literal('Female'), z.literal('male'), z.literal('female')])
+        .optional()
+        .transform((value) => (value ? (value.toLowerCase() === 'male' ? 'Male' : 'Female') : undefined)),
     email: z.string().email().optional().or(z.literal('')),
     phone: z.string(),
     type: z.enum(['student', 'graduate']),
@@ -40,10 +45,50 @@ const submissionSchema = z.object({
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const result = submissionSchema.safeParse(body);
+        const normalizedBody = {
+            ...body,
+            fullName: typeof body?.fullName === 'string' ? body.fullName.trim() : body?.fullName,
+            email: typeof body?.email === 'string' ? body.email.trim() : body?.email,
+            phone: typeof body?.phone === 'string' ? body.phone.trim() : body?.phone,
+            invitationLinkId: typeof body?.invitationLinkId === 'string' ? body.invitationLinkId.trim() : body?.invitationLinkId,
+            universityId:
+                typeof body?.universityId === 'string' && body.universityId.trim() === ''
+                    ? undefined
+                    : body?.universityId,
+            graduateGroupId:
+                typeof body?.graduateGroupId === 'string' && body.graduateGroupId.trim() === ''
+                    ? undefined
+                    : body?.graduateGroupId,
+            supportStatus:
+                typeof body?.supportStatus === 'string' && body.supportStatus.trim() === ''
+                    ? undefined
+                    : body?.supportStatus,
+            supportFrequency:
+                typeof body?.supportFrequency === 'string' && body.supportFrequency.trim() === ''
+                    ? undefined
+                    : body?.supportFrequency,
+            supportAmount:
+                typeof body?.supportAmount === 'string' && body.supportAmount.trim() === ''
+                    ? undefined
+                    : body?.supportAmount,
+            isDiaspora: body?.isDiaspora === 'indeterminate' ? false : body?.isDiaspora,
+            financialSupport: body?.financialSupport === 'indeterminate' ? false : body?.financialSupport,
+            enableReminder: body?.enableReminder === 'indeterminate' ? false : body?.enableReminder,
+            attendGraduateCell: body?.attendGraduateCell === 'indeterminate' ? false : body?.attendGraduateCell,
+            noCellAvailable: body?.noCellAvailable === 'indeterminate' ? false : body?.noCellAvailable,
+        };
+
+        const result = submissionSchema.safeParse(normalizedBody);
 
         if (!result.success) {
-            return new NextResponse('Invalid data', { status: 400 });
+            return NextResponse.json(
+                {
+                    error: 'INVALID_DATA',
+                    message: result.error.issues[0]?.message || 'Submitted data is invalid.',
+                    details: result.error.issues,
+                },
+                { status: 400 }
+            );
         }
 
         const data = result.data;
@@ -54,13 +99,39 @@ export async function POST(req: Request) {
         }
 
         // Check invitation validity again
-        const invitation = await prisma.invitationlink.findUnique({
-            where: { id: data.invitationLinkId },
+        const invitation = await prisma.invitationlink.findFirst({
+            where: {
+                OR: [
+                    { id: data.invitationLinkId },
+                    { slug: data.invitationLinkId },
+                ],
+            },
         });
 
         if (!invitation || !invitation.isActive || new Date(invitation.expiration) < new Date()) {
-            return new NextResponse('Invalid or expired invitation', { status: 400 });
+            return NextResponse.json(
+                {
+                    error: 'INVALID_OR_EXPIRED_INVITATION',
+                    message: 'Invalid or expired invitation.',
+                    details: {
+                        providedInvitationLinkId: data.invitationLinkId,
+                        matchedInvitationId: invitation?.id ?? null,
+                    },
+                },
+                { status: 400 }
+            );
         }
+
+        const normalizedUniversityId =
+            typeof data.universityId === 'string' && data.universityId.trim() !== '' && !Number.isNaN(Number(data.universityId))
+                ? Number(data.universityId)
+                : undefined;
+
+        const payloadWithScope = {
+            ...data,
+            universityId: normalizedUniversityId,
+            regionId: invitation.regionId ?? undefined,
+        };
 
         // Deduplication / Reactivation Check
         const userOrConditions: any[] = [{ contact: data.phone }];
@@ -169,13 +240,13 @@ export async function POST(req: Request) {
             data: {
                 type: data.type,
                 status: 'PENDING',
-                invitationLinkId: data.invitationLinkId,
+                invitationLinkId: invitation.id,
                 fullName: data.fullName,
                 updatedAt: new Date(),
                 phone: data.phone,
                 email: data.email || null,
                 payload: {
-                    ...data,
+                    ...payloadWithScope,
                     location: {
                         province: data.province,
                         district: data.district,
@@ -184,6 +255,22 @@ export async function POST(req: Request) {
                 }, // Store full JSON with structured location
             },
         });
+
+        if (data.email && data.email.length > 0) {
+            try {
+                await sendRegistrationSubmittedEmail({
+                    to: data.email,
+                    fullName: data.fullName,
+                    registrationType: data.type,
+                });
+            } catch (emailError) {
+                console.error('Submission email send failed:', {
+                    email: data.email,
+                    type: data.type,
+                    error: emailError,
+                });
+            }
+        }
 
         return new NextResponse('Submitted successfully', { status: 201 });
 

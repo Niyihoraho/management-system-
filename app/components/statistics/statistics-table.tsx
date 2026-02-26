@@ -23,6 +23,8 @@ interface UniversityStats {
     id: number;
     name: string;
     activeMembers: number;
+    maleMembers?: number;
+    femaleMembers?: number;
     cells: number;
     discipleshipGroups: number;
     studentsInDiscipleship: number;
@@ -34,6 +36,8 @@ interface RegionStats {
     id: number;
     name: string;
     activeMembers: number;
+    maleMembers?: number;
+    femaleMembers?: number;
     cells: number;
     discipleshipGroups: number;
     studentsInDiscipleship: number;
@@ -46,6 +50,8 @@ interface RegionStats {
 export function StatisticsTable({ stats }: { stats: RegionStats[] }) {
     // Calculate Grand Totals
     const totalActive = stats.reduce((sum, r) => sum + r.activeMembers, 0);
+    const totalMale = stats.reduce((sum, r) => sum + (r.maleMembers || 0), 0);
+    const totalFemale = stats.reduce((sum, r) => sum + (r.femaleMembers || 0), 0);
     const totalCells = stats.reduce((sum, r) => sum + r.cells, 0);
     const totalGroups = stats.reduce((sum, r) => sum + r.discipleshipGroups, 0);
     const totalStudents = stats.reduce((sum, r) => sum + r.studentsInDiscipleship, 0);
@@ -68,11 +74,12 @@ export function StatisticsTable({ stats }: { stats: RegionStats[] }) {
                     <TableRow className="bg-muted/50">
                         <TableHead className="w-[300px]">Region / University</TableHead>
                         <TableHead className="text-right">Active Members</TableHead>
+                        <TableHead className="text-right text-blue-600">Male</TableHead>
+                        <TableHead className="text-right text-pink-600">Female</TableHead>
                         <TableHead className="text-right">Cells</TableHead>
                         <TableHead className="text-right">DG Groups</TableHead>
                         <TableHead className="text-right">In DG</TableHead>
                         <TableHead className="text-right">New Joined</TableHead>
-                        <TableHead className="text-right">Saved</TableHead>
                         <TableHead className="text-right text-primary font-bold">Saved</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -86,11 +93,13 @@ export function StatisticsTable({ stats }: { stats: RegionStats[] }) {
                             </div>
                         </TableCell>
                         <TableCell className="text-right">{totalActive.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-blue-600/80">{totalMale.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-pink-600/80">{totalFemale.toLocaleString()}</TableCell>
                         <TableCell className="text-right">{totalCells.toLocaleString()}</TableCell>
                         <TableCell className="text-right">{totalGroups.toLocaleString()}</TableCell>
                         <TableCell className="text-right">{totalStudents.toLocaleString()}</TableCell>
                         <TableCell className="text-right">{totalJoined.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{totalSaved.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-primary">{totalSaved.toLocaleString()}</TableCell>
                     </TableRow>
 
                     {stats.map((region, index) => (
@@ -129,11 +138,12 @@ function RegionRow({ region, index }: { region: RegionStats; index: number }) {
                     </div>
                 </TableCell>
                 <TableCell className="text-right font-medium">{region.activeMembers.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-medium text-blue-600/80">{(region.maleMembers || 0).toLocaleString()}</TableCell>
+                <TableCell className="text-right font-medium text-pink-600/80">{(region.femaleMembers || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-right font-medium">{region.cells.toLocaleString()}</TableCell>
                 <TableCell className="text-right font-medium">{region.discipleshipGroups.toLocaleString()}</TableCell>
                 <TableCell className="text-right font-medium">{region.studentsInDiscipleship.toLocaleString()}</TableCell>
                 <TableCell className="text-right font-medium">{region.joinedThisYear.toLocaleString()}</TableCell>
-                <TableCell className="text-right font-medium">{region.savedStudents.toLocaleString()}</TableCell>
                 <TableCell className="text-right font-medium text-primary">{region.savedStudents.toLocaleString()}</TableCell>
             </TableRow>
 
@@ -147,11 +157,13 @@ function RegionRow({ region, index }: { region: RegionStats; index: number }) {
                         </div>
                     </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.activeMembers.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm text-blue-600/80">{(uni.maleMembers || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm text-pink-600/80">{(uni.femaleMembers || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.cells.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.discipleshipGroups.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.studentsInDiscipleship.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{uni.joinedThisYear.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-sm text-muted-foreground">{uni.savedStudents.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm text-primary/80">{uni.savedStudents.toLocaleString()}</TableCell>
                 </TableRow>
             ))}
         </>

@@ -8,14 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Globe, GraduationCap } from 'lucide-react';
+import { Loader2, Globe, GraduationCap, Sparkles } from 'lucide-react';
 
 interface GraduateFormData {
   fullName: string;
+  sex: string;
   phone: string;
   email: string;
   university: string;
   course: string;
+  profession: string;
   graduationYear: string;
   residenceProvince: string;
   residenceDistrict: string;
@@ -24,6 +26,7 @@ interface GraduateFormData {
   servingPillars: string[];
 
   graduateGroupId: string;
+  noCellAvailable: boolean;
   status: string;
 
   provinceId: string;
@@ -35,16 +38,19 @@ interface GraduateFormProps {
   onSubmit: (data: GraduateFormData) => Promise<void>;
   initialData?: Partial<GraduateFormData>;
   title?: string;
-  graduateGroups: { id: number; name: string; regionId: number; provinceId?: string | null }[];
+  showNewCellBadge?: boolean;
+  graduateGroups: { id: number; name: string; provinceId?: string | null }[];
   provinces: { id: string; name: string }[];
 }
 
 const initialFormData: GraduateFormData = {
   fullName: '',
+  sex: 'Male',
   phone: '',
   email: '',
   university: '',
   course: '',
+  profession: '',
   graduationYear: '',
   residenceProvince: '',
   residenceDistrict: '',
@@ -53,22 +59,20 @@ const initialFormData: GraduateFormData = {
   servingPillars: [],
 
   graduateGroupId: '',
+  noCellAvailable: false,
   status: 'active',
 
   provinceId: '',
 };
 
 const servingPillarOptions = [
-  'Worship',
-  'Evangelism',
-  'Discipleship',
-  'Leadership',
-  'Administration',
-  'Finance',
-  'Media',
-  'Hospitality',
-  'Prayer',
-  'Counseling',
+  { value: 'mobilization_integration', label: 'Mobilization & Integration' },
+  { value: 'capacity_building', label: 'Capacity Building' },
+  { value: 'event_planning_management', label: 'Event Planning & Management' },
+  { value: 'graduate_cell_management', label: 'Graduate Cell Management' },
+  { value: 'social_cohesion_promotion', label: 'Social Cohesion Promotion' },
+  { value: 'prayer_promotion', label: 'Prayer Promotion' },
+  { value: 'database_management', label: 'Database Management' },
 ];
 
 export default function GraduateForm({
@@ -77,6 +81,7 @@ export default function GraduateForm({
   onSubmit,
   initialData,
   title = 'Add Graduate',
+  showNewCellBadge = false,
   graduateGroups,
   provinces,
 }: GraduateFormProps) {
@@ -114,7 +119,11 @@ export default function GraduateForm({
       newErrors.fullName = 'Full name is required';
     }
 
-    if (!formData.graduateGroupId) {
+    if (!formData.sex) {
+      newErrors.sex = 'Sex is required';
+    }
+
+    if (!formData.isDiaspora && !formData.noCellAvailable && !formData.graduateGroupId) {
       newErrors.graduateGroupId = 'Graduate group is required';
     }
 
@@ -188,7 +197,7 @@ export default function GraduateForm({
             <CardHeader className="pb-6 border-b mb-6">
               <div className="text-center">
                 <h3 className="text-lg font-semibold">Graduate Information</h3>
-                <p className="text-sm text-muted-foreground">Enter graduate's personal and academic details</p>
+                <p className="text-sm text-muted-foreground">Enter graduate&apos;s personal and academic details</p>
               </div>
             </CardHeader>
             <CardContent>
@@ -213,6 +222,25 @@ export default function GraduateForm({
                       />
                       {errors.fullName && (
                         <p className="text-sm text-destructive">{errors.fullName}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sex">Sex</Label>
+                      <Select
+                        value={formData.sex}
+                        onValueChange={(value) => handleChange('sex', value)}
+                      >
+                        <SelectTrigger id="sex" className="h-11">
+                          <SelectValue placeholder="Select sex" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.sex && (
+                        <p className="text-sm text-destructive">{errors.sex}</p>
                       )}
                     </div>
 
@@ -292,6 +320,17 @@ export default function GraduateForm({
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="profession">Profession</Label>
+                      <Input
+                        id="profession"
+                        value={formData.profession}
+                        onChange={(e) => handleChange('profession', e.target.value)}
+                        placeholder="Enter profession"
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="graduationYear">Graduation Year</Label>
                       <Input
                         id="graduationYear"
@@ -320,18 +359,20 @@ export default function GraduateForm({
                         value={formData.provinceId}
                         onValueChange={(value) => {
                           handleChange('provinceId', value);
-                          handleChange('graduateGroupId', '');
+                          if (!formData.noCellAvailable) {
+                            handleChange('graduateGroupId', '');
+                          }
                         }}
                       >
                         <SelectTrigger className="h-11">
                           <SelectValue placeholder="Select province" />
                         </SelectTrigger>
-                     <SelectContent>
-                           {provinceOptions.map((province) => (
-                             <SelectItem key={province.id} value={province.id.toString()}>
-                               {province.name}
-                             </SelectItem>
-                           ))}
+                        <SelectContent>
+                          {provinceOptions.map((province) => (
+                            <SelectItem key={province.id} value={province.id.toString()}>
+                              {province.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -340,11 +381,15 @@ export default function GraduateForm({
 
                     <div className="space-y-2">
                       <Label htmlFor="graduateGroupId">
-                        Graduate Group <span className="text-destructive">*</span>
+                        Graduate Group {(!formData.isDiaspora && !formData.noCellAvailable) && <span className="text-destructive">*</span>}
                       </Label>
                       <Select
                         value={formData.graduateGroupId}
-                        onValueChange={(value) => handleChange('graduateGroupId', value)}
+                        onValueChange={(value) => {
+                          handleChange('graduateGroupId', value);
+                          if (value) handleChange('noCellAvailable', false);
+                        }}
+                        disabled={formData.noCellAvailable}
                       >
                         <SelectTrigger className={`h-11 ${errors.graduateGroupId ? 'border-destructive' : ''}`}>
                           <SelectValue placeholder="Select graduate group" />
@@ -359,6 +404,35 @@ export default function GraduateForm({
                       </Select>
                       {errors.graduateGroupId && (
                         <p className="text-sm text-destructive">{errors.graduateGroupId}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 md:col-span-3">
+                      <div className="flex items-center justify-between rounded-md border p-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="noCellAvailable" className="cursor-pointer">No graduate cell nearby</Label>
+                          <p className="text-xs text-muted-foreground">Use this when the graduate is new and not yet attached to a cell.</p>
+                        </div>
+                        <Checkbox
+                          id="noCellAvailable"
+                          checked={formData.noCellAvailable}
+                          onCheckedChange={(checked) => {
+                            const enabled = Boolean(checked);
+                            handleChange('noCellAvailable', enabled);
+                            if (enabled) {
+                              handleChange('graduateGroupId', '');
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Cell Membership: {formData.noCellAvailable ? 'New' : formData.graduateGroupId ? 'Member' : 'New'}
+                      </div>
+                      {showNewCellBadge && (
+                        <div className="inline-flex items-center gap-1 text-xs rounded-md bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1">
+                          <Sparkles className="w-3 h-3" />
+                          New (auto-clears after 15 days)
+                        </div>
                       )}
                     </div>
                   </div>
@@ -431,14 +505,14 @@ export default function GraduateForm({
                       <Label>Serving Pillars</Label>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {servingPillarOptions.map((pillar) => (
-                          <div key={pillar} className="flex items-center space-x-2">
+                          <div key={pillar.value} className="flex items-center space-x-2">
                             <Checkbox
-                              id={`pillar-${pillar}`}
-                              checked={formData.servingPillars.includes(pillar)}
-                              onCheckedChange={() => handleServingPillarToggle(pillar)}
+                              id={`pillar-${pillar.value}`}
+                              checked={formData.servingPillars.includes(pillar.value)}
+                              onCheckedChange={() => handleServingPillarToggle(pillar.value)}
                             />
-                            <Label htmlFor={`pillar-${pillar}`} className="text-sm cursor-pointer">
-                              {pillar}
+                            <Label htmlFor={`pillar-${pillar.value}`} className="text-sm cursor-pointer">
+                              {pillar.label}
                             </Label>
                           </div>
                         ))}

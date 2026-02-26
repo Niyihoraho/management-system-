@@ -58,6 +58,7 @@ export function StudentForm({
   const [errors, setErrors] = React.useState<Record<string, string>>({})
   const [formData, setFormData] = React.useState({
     fullName: "",
+    sex: "Male",
     phone: "",
     email: "",
     universityId: "",
@@ -91,6 +92,7 @@ export function StudentForm({
       if (initialData) {
         setFormData({
           fullName: initialData.fullName || "",
+          sex: initialData.sex || "Male",
           phone: initialData.phone || "",
           email: initialData.email || "",
           universityId: initialData.universityId?.toString() || "",
@@ -107,6 +109,7 @@ export function StudentForm({
         // Reset form for new student
         const defaults: any = {
           fullName: "",
+          sex: "Male",
           phone: "",
           email: "",
           course: "",
@@ -172,6 +175,10 @@ export function StudentForm({
       newErrors.fullName = "Full name is required"
     }
 
+    if (!formData.sex) {
+      newErrors.sex = "Sex is required"
+    }
+
     // Only validate visible fields
     if (visibleFields.university && !formData.universityId) {
       newErrors.universityId = "University is required"
@@ -229,7 +236,7 @@ export function StudentForm({
             <CardHeader className="pb-6 border-b mb-6">
               <div className="text-center">
                 <h3 className="text-lg font-semibold">Student Information</h3>
-                <p className="text-sm text-muted-foreground">Enter student's personal and academic details</p>
+                <p className="text-sm text-muted-foreground">Enter student&apos;s personal and academic details</p>
               </div>
             </CardHeader>
             <CardContent>
@@ -295,6 +302,26 @@ export function StudentForm({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sex" className="text-sm font-medium flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Sex *
+                      </Label>
+                      <Select
+                        value={formData.sex}
+                        onValueChange={(value) => handleInputChange("sex", value)}
+                      >
+                        <SelectTrigger id="sex" className="h-11">
+                          <SelectValue placeholder="Select sex" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.sex && <p className="text-sm text-red-600">{errors.sex}</p>}
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="phone" className="text-sm font-medium flex items-center gap-2">
                         <Phone className="h-4 w-4" />
