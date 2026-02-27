@@ -29,9 +29,12 @@ export default async function JoinPage({ params }: JoinPageProps) {
                         image: true,
                     }
                 },
-                university: {
-                    select: { id: true, name: true },
-                    orderBy: { name: 'asc' }
+                InvitationUniversities: {
+                    include: {
+                        university: {
+                            select: { id: true, name: true }
+                        }
+                    }
                 }
             }
         });
@@ -70,7 +73,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
 
         const invitation = {
             ...invitationRecord,
-            universities: invitationRecord.university,
+            universities: invitationRecord.InvitationUniversities?.map(iu => iu.university) || [],
         };
 
         // Check expiration

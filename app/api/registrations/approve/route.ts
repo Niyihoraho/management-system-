@@ -34,7 +34,7 @@ export async function POST(req: Request) {
             include: {
                 invitationlink: {
                     include: {
-                        university: true
+                        InvitationUniversities: true
                     }
                 }
             },
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         } else if (userScope.scope === 'university') {
             // University admins can approve if the request belongs to their university
             const payloadUniversityId = parseNumericId(payload?.universityId);
-            const hasUniversity = request.invitationlink?.university?.some(u => u.id === userScope.universityId)
+            const hasUniversity = request.invitationlink?.InvitationUniversities?.some(iu => iu.A === userScope.universityId)
                 || payloadUniversityId === userScope.universityId;
             if (!hasUniversity) {
                 return new NextResponse('Forbidden: You can only approve requests for your university', { status: 403 });

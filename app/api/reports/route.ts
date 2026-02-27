@@ -96,10 +96,13 @@ export async function GET(req: Request) {
             where: whereConditions,
             include: {
                 user: {
-                    select: { name: true, email: true }
+                    select: { name: true, email: true, userRole: { select: { region: { select: { name: true } } } } }
                 },
                 strategic_priority: {
                     select: { id: true, name: true, description: true }
+                },
+                region: {
+                    select: { id: true, name: true }
                 },
                 activity_log: {
                     select: {
@@ -142,6 +145,7 @@ export async function GET(req: Request) {
                     description: report.strategic_priority.description ?? "",
                 }
                 : null,
+            regionName: report.region?.name || (report.user as any)?.userRole?.[0]?.region?.name || "Global / Unspecified",
             user: {
                 name: report.user?.name ?? null,
                 email: report.user?.email ?? null,

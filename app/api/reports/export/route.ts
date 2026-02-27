@@ -36,11 +36,12 @@ export const maxDuration = 60;
 
 type ExportRequestBody = {
     pillarIds?: number[];
+    reportIds?: number[];
 };
 
 const reportQuery = {
     include: {
-        user: { select: { name: true, email: true } },
+        user: { select: { name: true, email: true, userRole: { select: { region: { select: { name: true } } } } } },
         strategic_priority: { select: { id: true, name: true, description: true } },
         activity_log: {
             select: {
@@ -94,6 +95,10 @@ export async function POST(req: Request) {
         ? body.pillarIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))
         : [];
 
+    const requestedReportIds = Array.isArray(body.reportIds)
+        ? body.reportIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+        : [];
+
     const userScope = await getUserScope();
     if (!userScope) {
         return NextResponse.json({ error: "Access denied" }, { status: 403 });
@@ -105,9 +110,20 @@ export async function POST(req: Request) {
     }
 
     let whereInput: Prisma.report_submissionWhereInput = baseConditions as Prisma.report_submissionWhereInput;
-    if (requestedIds.length > 0) {
+
+    if (requestedReportIds.length > 0) {
         whereInput = {
-            AND: [baseConditions as Prisma.report_submissionWhereInput, { priorityId: { in: requestedIds } }],
+            AND: [
+                baseConditions as Prisma.report_submissionWhereInput,
+                { id: { in: requestedReportIds } }
+            ],
+        };
+    } else if (requestedIds.length > 0) {
+        whereInput = {
+            AND: [
+                baseConditions as Prisma.report_submissionWhereInput,
+                { priorityId: { in: requestedIds } }
+            ],
         };
     }
 
@@ -226,6 +242,9 @@ function buildTemplateView({
 
             group.sections.get(catKey)!.activities.push({
                 name: activity.activityName || "Untitled Activity",
+                submitterName: report.user?.name || "Unknown",
+                submitterEmail: report.user?.email || "Unknown Email",
+                submitterRegion: report.user?.userRole?.[0]?.region?.name || "Unknown Region",
                 beneficiaries: activity.beneficiaries || "—",
                 participants:
                     typeof activity.participantCount === "number"
@@ -325,29 +344,21 @@ function buildTemplateView({
         };
     }).filter(Boolean) as Array<{ id: number; number: string; tagColor: string; tagLabel: string; title: string; subtitle: string; vision: string; sections: Section[]; evaluation: any; animationDelay: string; isLast: boolean }>;
 
-    const coverStatement = pillars[0]?.vision
-        || pillars[0]?.subtitle
-        || "We want to see strategic initiatives thriving across every pillar.";
-
     return {
         organizationBadge: "GBUR Student Ministry",
-        reportTitle: "Annual Report",
+        reportTitle: "Strategic Report",
         reportTheme: "Thriving Together",
-        reportSubtitle: `Strategic Reporting Export — ${format(generatedAt, "MMMM d, yyyy")}`,
-        coverStatement,
-        meta: [
-            { label: "Prepared For", value: sessionUserName },
-            logos.primaryLogo
-                ? { logo: logos.primaryLogo, logoAlt: "GBUR Student Ministry" }
-                : { label: "Total Submissions", value: reports.length.toString() },
-            logos.secondaryLogo
-                ? { logo: logos.secondaryLogo, logoAlt: "IFES" }
-                : { label: "Pillars Included", value: pillars.length.toString() },
-            { label: "Generated", value: format(generatedAt, "PPP") },
-        ],
+        reportSubtitle: "Ministry Activities and Priority Evaluations",
+        coverStatement: "Empowering students, nurturing leadership, and building resilient communities.",
+        logos: (logos.primaryLogo || logos.secondaryLogo) ? {
+            primaryLogo: logos.primaryLogo,
+            invertPrimary: false,
+            secondaryLogo: logos.secondaryLogo,
+            invertSecondary: false,
+        } : null,
         pillars,
-        footerLineOne: `GBUR Student Ministry · Strategic Reporting · ${format(generatedAt, "yyyy")}`,
-        footerLineTwo: `${pillars.length} pillar${pillars.length === 1 ? "" : "s"}, ${totalActivities} activit${totalActivities === 1 ? "y" : "ies"} · Generated ${format(generatedAt, "PPP")}`,
+        footerLineOne: `GBUR Student Ministry`,
+        footerLineTwo: `${pillars.length} Pillar${pillars.length === 1 ? "" : "s"} · ${totalActivities} Activit${totalActivities === 1 ? "y" : "ies"}`,
     };
 }
 
@@ -452,7 +463,7 @@ async function renderPdf(html: string) {
 
 async function loadCoverLogos() {
     const [primaryLogo, secondaryLogo] = await Promise.all([
-        loadAssetDataUri("logo-r.png"),
+        loadAssetDataUri("logo2.jpg"),
         loadAssetDataUri("ifeslogo.png"),
     ]);
     return {
