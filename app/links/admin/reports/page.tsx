@@ -30,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Search, FileText, Download, Star, Eye, Loader2 } from "lucide-react";
+import { RefreshCw, Search, FileText, Download, Star, Eye, Loader2, ChevronDown, ChevronRight, MapPin, Users, Building2 } from "lucide-react";
 import { EvaluationModal } from "@/components/reporting/evaluation-modal";
 import { ViewActivityModal } from "@/app/components/reporting/view-activity-modal";
 import { useToast } from "@/components/ui/use-toast";
@@ -49,6 +49,7 @@ type ReportSubmission = {
     createdAt: string;
     priorityId: number | null;
     priority: { id: number; name: string } | null;
+    regionName: string;
     user: { name: string | null; email: string | null };
     activities: {
         id: number;
@@ -62,6 +63,158 @@ type ReportSubmission = {
     }[];
     evaluations: { id: number; questionId: number; rating: string }[];
 };
+
+function RegionRow({
+    region,
+    index,
+    config,
+    setSelectedReport,
+    setIsModalOpen,
+    setSelectedActivity,
+    setIsViewModalOpen
+}: {
+    region: any;
+    index: number;
+    config: any[];
+    setSelectedReport: any;
+    setIsModalOpen: any;
+    setSelectedActivity: any;
+    setIsViewModalOpen: any;
+}) {
+    const [isOpen, setIsOpen] = useState(true);
+
+    const totalParticipants = region.pillars.reduce((sum: number, p: any) =>
+        sum + p.categories.reduce((catSum: number, cat: any) =>
+            catSum + cat.activities.reduce((actSum: number, act: any) => actSum + (act.participantCount ?? 0), 0)
+            , 0)
+        , 0);
+
+    return (
+        <>
+            <TableRow
+                className={`
+                    group transition-colors border-b-2 border-b-primary/10 hover:bg-muted/30
+                    ${index % 2 === 0 ? 'bg-background' : 'bg-muted/5'}
+                `}
+            >
+                <TableCell className="font-bold py-4">
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 hover:bg-muted"
+                            onClick={() => setIsOpen(!isOpen)}
+                        >
+                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </Button>
+                        <MapPin className="h-5 w-5 text-primary/80" />
+                        <span className="text-base text-foreground uppercase tracking-wide">REGION: {region.regionName}</span>
+                        <span className="text-xs font-normal text-muted-foreground ml-2">
+                            ({region.pillars.length} Strategic Priorities)
+                        </span>
+                    </div>
+                </TableCell>
+                <TableCell colSpan={2} />
+                <TableCell className="text-right font-bold text-primary text-base">
+                    {totalParticipants.toLocaleString()}
+                </TableCell>
+                <TableCell />
+            </TableRow>
+
+            {isOpen && region.pillars.map((pillar: any) => {
+                const priorityConfig = config.find((c) => c.id === pillar.priorityId);
+                const canEvaluate = Boolean(priorityConfig);
+                const repForEval = pillar.reports[0];
+
+                return (
+                    <Fragment key={`pillar-${region.regionName}-${pillar.priorityId}`}>
+                        <TableRow className="bg-muted/20 hover:bg-muted/30 border-t">
+                            <TableCell colSpan={3} className="font-bold text-sm pl-12 border-l-4 border-l-primary/60">
+                                <div className="flex items-center gap-2">
+                                    <Building2 className="h-4 w-4 text-primary/70" />
+                                    {pillar.priorityName}
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                                {pillar.categories.reduce((sum: number, cat: any) => sum + cat.activities.reduce((s: number, a: any) => s + (a.participantCount ?? 0), 0), 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant={pillar.evaluated ? "secondary" : "outline"}
+                                        className={pillar.evaluated
+                                            ? "h-7 gap-1 bg-green-100 text-green-800 hover:bg-green-200 text-xs"
+                                            : "h-7 gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 bg-white text-xs"}
+                                        disabled={!canEvaluate}
+                                        onClick={() => {
+                                            if (!canEvaluate || !repForEval) return;
+                                            setSelectedReport(repForEval);
+                                            setIsModalOpen(true);
+                                        }}
+                                    >
+                                        <Star className="h-3 w-3" />
+                                        {pillar.evaluated ? "Re-evaluate" : "Evaluate Pillar"}
+                                    </Button>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+
+                        {pillar.categories.map((cat: any) => (
+                            <Fragment key={`cat-${region.regionName}-${pillar.priorityId}-${cat.categoryId}`}>
+                                <TableRow className="bg-transparent hover:bg-muted/10 border-none">
+                                    <TableCell colSpan={5} className="font-semibold pl-16 py-2 text-xs text-muted-foreground uppercase tracking-wider">
+                                        {cat.categoryName}
+                                    </TableCell>
+                                </TableRow>
+
+                                {cat.activities.map((act: any) => (
+                                    <TableRow key={`act-${region.regionName}-${act.reportId}-${act.id}`} className="hover:bg-muted/5 border-none">
+                                        <TableCell className="pl-16 py-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
+                                                <span className="font-medium text-sm">{act.activityName}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                            <span className="whitespace-nowrap text-sm text-foreground/90">
+                                                {format(new Date(act.reportCreatedAt), "MMM d, yyyy")}
+                                            </span>
+                                            <div className="text-xs text-muted-foreground">
+                                                {format(new Date(act.reportCreatedAt), "h:mm a")}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                            <div className="font-medium text-sm text-foreground/90">{act.user.name || "Unknown"}</div>
+                                            <div className="text-xs text-muted-foreground">{act.user.email || "N/A"}</div>
+                                        </TableCell>
+                                        <TableCell className="text-right text-sm text-muted-foreground py-2 font-medium">
+                                            {act.participantCount?.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell className="text-right py-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 gap-1 text-primary hover:bg-primary/5 hover:text-primary"
+                                                onClick={() => {
+                                                    setSelectedActivity(act);
+                                                    setIsViewModalOpen(true);
+                                                }}
+                                            >
+                                                <Eye className="h-3.5 w-3.5" />
+                                                View
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </Fragment>
+                        ))}
+                    </Fragment>
+                );
+            })}
+        </>
+    );
+}
 
 type ConfigData = {
     id: number;
@@ -78,8 +231,8 @@ export default function AdminReportsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedExportPillars, setSelectedExportPillars] = useState<number[]>([]);
-    const [selectAllPillars, setSelectAllPillars] = useState(true);
+    const [selectedExportItems, setSelectedExportItems] = useState<string[]>([]);
+    const [selectAllItems, setSelectAllItems] = useState(false);
     const [exporting, setExporting] = useState(false);
 
     // Modal State
@@ -147,14 +300,24 @@ export default function AdminReportsPage() {
     }, [reports, normalizedSearch]);
 
     const groupedData = useMemo(() => {
-        const map = new Map<number, any>();
+        const regionMap = new Map<string, any>();
 
         filteredReports.forEach(report => {
             if (!report.priorityId || !report.priority) return;
+
+            const rName = report.regionName || "Global / Unspecified";
+            if (!regionMap.has(rName)) {
+                regionMap.set(rName, {
+                    regionName: rName,
+                    pillars: new Map<number, any>()
+                });
+            }
+
+            const regionGroup = regionMap.get(rName);
             const pId = report.priorityId;
 
-            if (!map.has(pId)) {
-                map.set(pId, {
+            if (!regionGroup.pillars.has(pId)) {
+                regionGroup.pillars.set(pId, {
                     priorityId: pId,
                     priorityName: report.priority.name,
                     reports: [],
@@ -163,7 +326,7 @@ export default function AdminReportsPage() {
                 });
             }
 
-            const pillarGroup = map.get(pId);
+            const pillarGroup = regionGroup.pillars.get(pId);
             pillarGroup.reports.push(report);
             if (report.evaluations && report.evaluations.length > 0) {
                 pillarGroup.evaluated = true;
@@ -190,65 +353,89 @@ export default function AdminReportsPage() {
             });
         });
 
-        return Array.from(map.values());
+        // Convert to array of regions, each containing an array of pillars
+        return Array.from(regionMap.values()).map(rg => ({
+            regionName: rg.regionName,
+            pillars: Array.from(rg.pillars.values())
+        })).sort((a, b) => a.regionName.localeCompare(b.regionName));
     }, [filteredReports]);
 
-    const submittedPillars = useMemo(() => {
-        return groupedData.map((pillar) => ({
-            id: pillar.priorityId,
-            name: pillar.priorityName,
-        }));
+    const exportableItems = useMemo(() => {
+        const items: { id: string; name: string; regionName: string; reportIds: number[] }[] = [];
+        groupedData.forEach(region => {
+            region.pillars.forEach((pillar: any) => {
+                const itemId = `${region.regionName}|${pillar.priorityId}`;
+                items.push({
+                    id: itemId,
+                    name: pillar.priorityName,
+                    regionName: region.regionName,
+                    reportIds: pillar.reports.map((r: any) => r.id)
+                });
+            });
+        });
+        return items;
     }, [groupedData]);
 
     useEffect(() => {
-        setSelectedExportPillars((prev) =>
-            prev.filter((pillarId) => submittedPillars.some((pillar) => pillar.id === pillarId))
+        setSelectedExportItems((prev) =>
+            prev.filter((itemId) => exportableItems.some((item) => item.id === itemId))
         );
-    }, [submittedPillars]);
+    }, [exportableItems]);
 
     useEffect(() => {
-        if (selectAllPillars) {
-            setSelectedExportPillars(submittedPillars.map((pillar) => pillar.id));
+        if (selectAllItems) {
+            setSelectedExportItems(exportableItems.map((item) => item.id));
         }
-    }, [selectAllPillars, submittedPillars]);
+    }, [selectAllItems, exportableItems]);
 
     const toggleSelectAllSubmitted = (checked: boolean) => {
-        setSelectAllPillars(checked);
+        setSelectAllItems(checked);
         if (!checked) {
-            setSelectedExportPillars([]);
+            setSelectedExportItems([]);
         } else {
-            setSelectedExportPillars(submittedPillars.map((pillar) => pillar.id));
+            setSelectedExportItems(exportableItems.map((item) => item.id));
         }
     };
 
-    const togglePillarSelection = (pillarId: number, checked: boolean) => {
-        setSelectAllPillars(false);
-        setSelectedExportPillars((prev) => {
+    const toggleItemSelection = (itemId: string, checked: boolean) => {
+        setSelectAllItems(false);
+        setSelectedExportItems((prev) => {
             if (checked) {
-                if (prev.includes(pillarId)) return prev;
-                return [...prev, pillarId];
+                if (prev.includes(itemId)) return prev;
+                return [...prev, itemId];
             }
-            return prev.filter((id) => id !== pillarId);
+            return prev.filter((id) => id !== itemId);
         });
     };
 
     const handleExportSelected = async () => {
-        if (submittedPillars.length === 0 || exporting) return;
+        if (exportableItems.length === 0 || exporting) return;
 
-        const selectedIds = selectAllPillars
-            ? Array.from(new Set(submittedPillars.map((pillar) => pillar.id)))
-            : Array.from(new Set(selectedExportPillars));
+        const selectedIds = selectAllItems
+            ? Array.from(new Set(exportableItems.map((item) => item.id)))
+            : Array.from(new Set(selectedExportItems));
 
-        const exportingAll = selectAllPillars || selectedIds.length === submittedPillars.length;
+        const exportingAll = selectAllItems || selectedIds.length === exportableItems.length;
 
         if (!exportingAll && selectedIds.length === 0) {
-            toast({ title: "Select at least one pillar", description: "Choose which submitted pillars to export." });
+            toast({ title: "Select at least one priority", description: "Choose which submitted priorities to export." });
             return;
         }
 
+        // Gather all report IDs belonging to the selected items
+        const selectedReportIds = new Set<number>();
+        exportableItems.forEach(item => {
+            if (selectedIds.includes(item.id)) {
+                item.reportIds.forEach((rId) => selectedReportIds.add(rId));
+            }
+        });
+
+        // Fallback or purely logic: if there are somehow no report IDs but we think we selected things
+        if (selectedReportIds.size === 0) return;
+
         setExporting(true);
         try {
-            const payload = { pillarIds: selectedIds };
+            const payload = { reportIds: Array.from(selectedReportIds) };
             const res = await fetch("/api/reports/export", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -266,7 +453,7 @@ export default function AdminReportsPage() {
                 throw new Error("Received an empty PDF response");
             }
             const url = URL.createObjectURL(blob);
-            const filenameBase = exportingAll ? "all" : selectedIds.join("-");
+            const filenameBase = exportingAll ? "all" : selectedIds.length.toString() + "-targets";
             const filename = `gbu-strategic-report-${filenameBase}-${new Date().toISOString().split("T")[0]}.pdf`;
 
             const link = document.createElement("a");
@@ -281,10 +468,7 @@ export default function AdminReportsPage() {
 
             const selectionLabel = exportingAll
                 ? "All submitted priorities"
-                : submittedPillars
-                    .filter((pillar) => selectedIds.includes(pillar.id))
-                    .map((pillar) => pillar.name)
-                    .join(", ");
+                : `${selectedIds.length} priority combinations`;
 
             toast({
                 title: "PDF export ready",
@@ -343,40 +527,53 @@ export default function AdminReportsPage() {
                                             Export PDF
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[300px]">
-                                        <DropdownMenuLabel>Select Pillars to Export</DropdownMenuLabel>
+                                    <DropdownMenuContent align="end" className="w-[400px]">
+                                        <DropdownMenuLabel>Select Priorities to Export</DropdownMenuLabel>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuCheckboxItem
-                                            checked={selectAllPillars}
+                                            checked={selectAllItems}
                                             onSelect={(event) => event.preventDefault()}
                                             onCheckedChange={(checked) => toggleSelectAllSubmitted(Boolean(checked))}
                                         >
-                                            Export All Submitted Priorities
+                                            <span className="font-semibold">Export All Submitted Priorities</span>
                                         </DropdownMenuCheckboxItem>
                                         <DropdownMenuSeparator />
-                                        {submittedPillars.length === 0 ? (
-                                            <div className="px-3 py-2 text-xs text-muted-foreground">
-                                                No pillars have submissions yet.
-                                            </div>
-                                        ) : (
-                                            submittedPillars.map((pillar) => (
-                                                <DropdownMenuCheckboxItem
-                                                    key={`export-pillar-${pillar.id}`}
-                                                    checked={selectAllPillars || selectedExportPillars.includes(pillar.id)}
-                                                    onSelect={(event) => event.preventDefault()}
-                                                    onCheckedChange={(checked) => togglePillarSelection(pillar.id, Boolean(checked))}
-                                                >
-                                                    {pillar.name}
-                                                </DropdownMenuCheckboxItem>
-                                            ))
-                                        )}
+                                        <div className="max-h-[350px] overflow-y-auto">
+                                            {groupedData.length === 0 ? (
+                                                <div className="px-3 py-2 text-xs text-muted-foreground">
+                                                    No priorities have submissions yet.
+                                                </div>
+                                            ) : (
+                                                groupedData.map((regionGroup) => (
+                                                    <div key={`export-region-${regionGroup.regionName}`} className="mb-2">
+                                                        <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-primary/80 bg-muted/30">
+                                                            {regionGroup.regionName}
+                                                        </div>
+                                                        {regionGroup.pillars.map((pillar: any) => {
+                                                            const itemId = `${regionGroup.regionName}|${pillar.priorityId}`;
+                                                            return (
+                                                                <DropdownMenuCheckboxItem
+                                                                    key={`export-item-${itemId}`}
+                                                                    checked={selectAllItems || selectedExportItems.includes(itemId)}
+                                                                    onSelect={(event) => event.preventDefault()}
+                                                                    onCheckedChange={(checked) => toggleItemSelection(itemId, Boolean(checked))}
+                                                                    className="ml-2 pl-6"
+                                                                >
+                                                                    <span className="text-sm truncate pr-2 max-w-[320px] inline-block" title={pillar.priorityName}>{pillar.priorityName}</span>
+                                                                </DropdownMenuCheckboxItem>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
                                         <DropdownMenuSeparator />
-                                        <div className="px-3 pb-2">
+                                        <div className="px-3 pb-2 pt-2">
                                             <Button
                                                 size="sm"
                                                 className="w-full"
                                                 onClick={handleExportSelected}
-                                                disabled={submittedPillars.length === 0 || exporting}
+                                                disabled={exportableItems.length === 0 || exporting}
                                             >
                                                 {exporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                                 {exporting ? "Preparing..." : "Export Selection"}
@@ -430,98 +627,18 @@ export default function AdminReportsPage() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {groupedData.flatMap((pillar) => {
-                                                    const priorityConfig = config.find((c) => c.id === pillar.priorityId);
-                                                    const canEvaluate = Boolean(priorityConfig);
-                                                    const repForEval = pillar.reports[0];
-
-                                                    const rows = [];
-
-                                                    // Pillar Row
-                                                    rows.push(
-                                                        <TableRow key={`pillar-${pillar.priorityId}`} className="bg-muted/50 hover:bg-muted/50">
-                                                            <TableCell colSpan={3} className="font-bold text-base border-l-4 border-l-primary/60">
-                                                                {pillar.priorityName}
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-bold">
-                                                                {pillar.categories.reduce((sum: number, cat: any) => sum + cat.activities.reduce((s: number, a: any) => s + (a.participantCount ?? 0), 0), 0).toLocaleString()}
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                <div className="flex justify-end gap-2">
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant={pillar.evaluated ? "secondary" : "outline"}
-                                                                        className={pillar.evaluated
-                                                                            ? "h-8 gap-1 bg-green-100 text-green-800 hover:bg-green-200"
-                                                                            : "h-8 gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 bg-white"}
-                                                                        disabled={!canEvaluate}
-                                                                        onClick={() => {
-                                                                            if (!canEvaluate || !repForEval) return;
-                                                                            setSelectedReport(repForEval);
-                                                                            setIsModalOpen(true);
-                                                                        }}
-                                                                    >
-                                                                        <Star className="h-3.5 w-3.5" />
-                                                                        {pillar.evaluated ? "Re-evaluate" : "Evaluate Pillar"}
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    );
-
-                                                    // Category Rows
-                                                    pillar.categories.forEach((cat: any) => {
-                                                        rows.push(
-                                                            <TableRow key={`cat-${pillar.priorityId}-${cat.categoryId}`} className="bg-muted/10 hover:bg-muted/10">
-                                                                <TableCell colSpan={5} className="font-semibold pl-8 text-sm text-foreground/80 border-l-4 border-l-primary/30">
-                                                                    {cat.categoryName}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        );
-
-                                                        // Activity Rows
-                                                        cat.activities.forEach((act: any) => {
-                                                            rows.push(
-                                                                <TableRow key={`act-${act.reportId}-${act.id}`}>
-                                                                    <TableCell className="pl-14">
-                                                                        <span className="font-medium text-sm">{act.activityName}</span>
-                                                                    </TableCell>
-                                                                    <TableCell>
-                                                                        <span className="whitespace-nowrap">
-                                                                            {format(new Date(act.reportCreatedAt), "MMM d, yyyy")}
-                                                                        </span>
-                                                                        <div className="text-xs text-muted-foreground">
-                                                                            {format(new Date(act.reportCreatedAt), "h:mm a")}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                    <TableCell>
-                                                                        <div className="font-medium">{act.user.name || "Unknown"}</div>
-                                                                        <div className="text-xs text-muted-foreground">{act.user.email || "N/A"}</div>
-                                                                    </TableCell>
-                                                                    <TableCell className="text-right text-muted-foreground">
-                                                                        {act.participantCount?.toLocaleString()}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-right">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="gap-1 text-primary hover:text-primary/80"
-                                        onClick={() => {
-                                            setSelectedActivity(act);
-                                            setIsViewModalOpen(true);
-                                        }}
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        View
-                                    </Button>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            );
-                                                        });
-                                                    });
-
-                                                    return rows;
-                                                })}
+                                                {groupedData.map((region, index) => (
+                                                    <RegionRow
+                                                        key={`region-${region.regionName}`}
+                                                        region={region}
+                                                        index={index}
+                                                        config={config}
+                                                        setSelectedReport={setSelectedReport}
+                                                        setIsModalOpen={setIsModalOpen}
+                                                        setSelectedActivity={setSelectedActivity}
+                                                        setIsViewModalOpen={setIsViewModalOpen}
+                                                    />
+                                                ))}
                                             </TableBody>
                                         </Table>
                                     </div>
@@ -555,5 +672,6 @@ export default function AdminReportsPage() {
 
             </SidebarInset>
         </SidebarProvider>
-        );
+    );
 }
+

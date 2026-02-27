@@ -21,6 +21,9 @@ import {
 
 const graduateSchema = z.object({
     fullName: z.string().min(2, "Full name is required"),
+    sex: z.enum(["Male", "Female"], {
+        message: "Sex is required",
+    }),
     email: z.string().email("Invalid email address"),
     phone: z.string().min(10, "Phone number required"),
     graduationYear: z.string().min(4, "Year required"),
@@ -140,6 +143,7 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
         defaultValues: {
             isDiaspora: false,
             fullName: "",
+            sex: "Male",
             phone: "",
             email: "",
             university: "",
@@ -237,7 +241,7 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
 
     const nextStep = async () => {
         let fieldsToValidate: any[] = [];
-        if (step === 1) fieldsToValidate = ["fullName", "phone", "email"];
+        if (step === 1) fieldsToValidate = ["fullName", "sex", "phone", "email"];
         if (step === 2) fieldsToValidate = ["university", "course", "graduationYear", "profession"];
         if (step === 3) fieldsToValidate = ["isDiaspora", "residenceProvince", "residenceDistrict", "residenceSector"];
         if (step === 4) fieldsToValidate = ["servingPillars"];
@@ -372,6 +376,19 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
                                 <Label className="text-slate-900 font-semibold text-sm">Full Name</Label>
                                 <Input {...form.register("fullName")} className="bg-slate-50 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-blue-600/20 focus-visible:border-blue-600 transition-all duration-200 hover:border-slate-400" />
                                 {form.formState.errors.fullName && <p className="text-xs text-red-600 font-medium">{form.formState.errors.fullName.message}</p>}
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-slate-900 font-semibold text-sm">Sex</Label>
+                                <Select onValueChange={(val) => form.setValue("sex", val as "Male" | "Female", { shouldValidate: true })} value={form.watch("sex")}>
+                                    <SelectTrigger className="bg-slate-50 border-slate-400 text-slate-900 focus:ring-blue-600/20 focus:border-blue-600">
+                                        <SelectValue placeholder="Select sex" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white border-slate-300 text-slate-900 shadow-lg rounded-xl">
+                                        <SelectItem value="Male">Male</SelectItem>
+                                        <SelectItem value="Female">Female</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {form.formState.errors.sex && <p className="text-xs text-red-600 font-medium">{form.formState.errors.sex.message}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-slate-900 font-semibold text-sm">Phone Number</Label>

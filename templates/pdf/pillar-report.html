@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{reportTitle}}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap"
+    rel="stylesheet" />
   <style>
     :root {
       --ink: #1a1a2e;
@@ -14,120 +17,182 @@
       --muted: #6b6b7b;
       --border: #e8e0cc;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+    }
 
     .report-header {
       background: radial-gradient(circle at 20% 20%, rgba(255, 222, 173, 0.08), transparent 55%), #10122c;
       color: var(--cream);
-      padding: 72px 80px 56px;
+      padding: 60px 40px;
       position: relative;
       overflow: hidden;
-      border-bottom-left-radius: 18px;
-      border-bottom-right-radius: 18px;
-      box-shadow: 0 25px 60px rgba(12, 13, 32, 0.35);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 1000px;
+      max-height: 1000px;
+      page-break-after: always;
     }
+
     .report-header::before,
     .report-header::after {
       content: '';
       position: absolute;
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.04);
       border-radius: 50%;
     }
+
     .report-header::before {
-      width: 420px;
-      height: 420px;
-      right: -120px;
-      top: -120px;
+      width: 800px;
+      height: 800px;
+      right: -200px;
+      top: -200px;
     }
+
     .report-header::after {
-      width: 260px;
-      height: 260px;
-      right: 80px;
-      bottom: -160px;
+      width: 600px;
+      height: 600px;
+      left: -150px;
+      bottom: -150px;
     }
+
     .header-content {
       position: relative;
       z-index: 2;
-      max-width: 920px;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      text-align: center;
     }
+
     .org-badge {
       display: inline-flex;
       align-items: center;
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      border: 1px solid rgba(201, 168, 76, 0.5);
       color: var(--gold);
-      font-size: 11px;
-      letter-spacing: 3px;
+      font-size: 13px;
+      letter-spacing: 4px;
       text-transform: uppercase;
-      padding: 7px 20px;
-      margin-bottom: 32px;
+      padding: 10px 24px;
+      margin-bottom: 40px;
       border-radius: 999px;
-      background: rgba(0, 0, 0, 0.25);
+      background: rgba(0, 0, 0, 0.3);
     }
+
     .report-header h1 {
       font-family: 'Playfair Display', serif;
-      font-size: clamp(42px, 6vw, 68px);
+      font-size: clamp(54px, 7vw, 92px);
       font-weight: 900;
       line-height: 1.05;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
-    .report-header h1 span { color: var(--gold); display: block; }
+
+    .report-header h1 span {
+      color: var(--gold);
+      display: block;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 0.85em;
+      margin-top: 8px;
+    }
+
     .report-subtitle {
-      color: rgba(250, 247, 240, 0.7);
-      font-size: 16px;
-      letter-spacing: 1px;
+      color: rgba(250, 247, 240, 0.75);
+      font-size: 18px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
       margin-bottom: 40px;
     }
+
     .meta-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 24px;
-      border-top: 1px solid rgba(201, 168, 76, 0.25);
-      padding-top: 28px;
+      border-top: 1px solid rgba(201, 168, 76, 0.2);
+      padding-top: 40px;
+      text-align: left;
     }
+
     .meta-item {
       background: rgba(0, 0, 0, 0.25);
-      padding: 14px 18px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      min-height: 90px;
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      min-height: 100px;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
-    .meta-item.logo-card {
-      align-items: center;
+
+    .cover-logos {
+      display: flex;
       justify-content: center;
+      align-items: center;
+      gap: 40px;
+      margin-bottom: 48px;
     }
-    .meta-logo {
-      max-height: 46px;
-      filter: brightness(0) invert(1);
-      opacity: 0.9;
+
+    .cover-logo {
+      max-height: 56px;
+      opacity: 0.95;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
     }
+
+    .cover-logo.inverted {
+      filter: brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    }
+
     .meta-item label {
       display: block;
-      font-size: 10px;
+      font-size: 11px;
       letter-spacing: 2px;
       text-transform: uppercase;
-      color: rgba(201, 168, 76, 0.85);
+      color: rgba(201, 168, 76, 0.9);
       margin-bottom: 8px;
     }
-    .meta-item span { font-size: 15px; color: var(--cream); font-weight: 500; }
-    .cover-statement {
-      margin-top: 36px;
-      background: rgba(6, 7, 18, 0.9);
-      border-left: 5px solid var(--gold);
-      padding: 22px 28px;
-      font-size: 15px;
-      color: rgba(250, 247, 240, 0.9);
-      font-style: italic;
-      line-height: 1.7;
-      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
+
+    .meta-item span {
+      font-size: 16px;
+      color: var(--cream);
+      font-weight: 500;
     }
 
-    .main-content { max-width: 1160px; margin: 0 auto; padding: 60px 40px; }
+    .cover-statement {
+      margin-top: 40px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(201, 168, 76, 0.15);
+      border-radius: 12px;
+      padding: 24px 32px;
+      font-size: 19px;
+      color: rgba(250, 247, 240, 0.95);
+      font-style: italic;
+      line-height: 1.6;
+      text-align: center;
+      max-width: 800px;
+      margin-inline: auto;
+    }
 
-    .pillar { margin-bottom: 80px; }
+    .main-content {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 60px 40px;
+    }
+
+    .pillar {
+      margin-bottom: 80px;
+    }
+
     .pillar-header {
       display: flex;
       align-items: flex-start;
@@ -136,6 +201,7 @@
       padding-bottom: 28px;
       border-bottom: 2px solid var(--border);
     }
+
     .pillar-number {
       font-family: 'Playfair Display', serif;
       font-size: 72px;
@@ -145,6 +211,7 @@
       flex-shrink: 0;
       margin-top: -8px;
     }
+
     .pillar-tag {
       display: inline-block;
       font-size: 10px;
@@ -155,13 +222,14 @@
       border-radius: 2px;
       margin-bottom: 10px;
     }
+
     .pillar-title {
       font-family: 'Playfair Display', serif;
       font-size: 28px;
       font-weight: 700;
       margin-bottom: 6px;
     }
-    .pillar-subtitle { font-size: 13px; color: var(--muted); font-style: italic; }
+
     .pillar-vision {
       background: var(--ink);
       color: rgba(250, 247, 240, 0.85);
@@ -175,7 +243,10 @@
       page-break-inside: avoid;
     }
 
-    .activities-section { margin-bottom: 40px; }
+    .activities-section {
+      margin-bottom: 40px;
+    }
+
     .activities-label {
       font-size: 11px;
       letter-spacing: 2px;
@@ -186,6 +257,7 @@
       align-items: center;
       gap: 10px;
     }
+
     .activities-label::after {
       content: '';
       flex: 1;
@@ -200,33 +272,66 @@
       overflow: hidden;
       background: white;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-      break-inside: avoid;
-      page-break-inside: avoid;
     }
 
-    .activity-data {
+    .activity-info-grid {
       display: grid;
-      grid-template-columns: 180px 1fr 75px 115px 155px 1fr 155px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 16px 20px;
+      font-size: 13px;
+      background: #fdfcf9;
+      border-bottom: 1px solid var(--border);
     }
-    .activity-data.header-row { background: var(--ink); }
-    .ad-cell {
-      padding: 11px 14px;
-      font-size: 12.5px;
-      line-height: 1.45;
-      border-right: 1px solid var(--border);
-      vertical-align: top;
+
+    .info-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
     }
-    .ad-cell:last-child { border-right: none; }
-    .activity-data.header-row .ad-cell {
-      font-size: 9.5px;
-      letter-spacing: 1.5px;
+
+    .info-label {
+      font-size: 10px;
+      color: var(--gold);
       text-transform: uppercase;
-      color: rgba(250, 247, 240, 0.55);
-      font-weight: 500;
-      border-right-color: rgba(255, 255, 255, 0.07);
-      padding: 10px 14px;
+      letter-spacing: 1px;
+      font-weight: 700;
     }
-    .ad-cell.activity-name { font-weight: 600; }
+
+    .activity-content {
+      padding: 20px;
+    }
+
+    .activity-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 12px;
+    }
+
+    .submitter-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .submitter-meta span.dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--gold);
+    }
+
+    .impact-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px dashed var(--border);
+    }
+
     .impact-tag {
       display: inline-block;
       background: #e8f5ef;
@@ -241,15 +346,15 @@
       border-top: 1px solid var(--border);
       background: #fdfcfa;
       padding: 14px 16px 16px;
-      break-inside: avoid;
-      page-break-inside: avoid;
     }
+
     .proof-header {
       display: flex;
       align-items: center;
       gap: 8px;
       margin-bottom: 12px;
     }
+
     .proof-header-label {
       font-size: 9.5px;
       letter-spacing: 2px;
@@ -257,7 +362,13 @@
       color: var(--gold);
       font-weight: 600;
     }
-    .proof-header-line { flex: 1; height: 1px; background: var(--border); }
+
+    .proof-header-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
     .proof-count {
       font-size: 10px;
       color: var(--muted);
@@ -265,29 +376,46 @@
       border-radius: 20px;
       padding: 1px 8px;
     }
-    .photo-grid { display: flex; gap: 20px; flex-wrap: wrap; }
-    .p-slot-wrap { display: flex; flex-direction: column; gap: 0; break-inside: avoid; page-break-inside: avoid; }
+
+    .photo-grid {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .p-slot-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
     .p-slot {
       width: 280px;
-      height: 185px;
+      height: 210px;
+      /* Encorced uniform height (4:3 aspect ratio roughly) */
       position: relative;
       border-radius: 8px;
       overflow: hidden;
       border: 1.5px dashed var(--border);
       background: #f5f2ea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
+
     .p-slot img {
-      position: absolute;
-      inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
       image-rendering: -webkit-optimize-contrast;
       image-rendering: crisp-edges;
       filter: saturate(1.05) contrast(1.05);
       transform: translateZ(0);
     }
+
     .p-caption {
       width: 280px;
       font-size: 11px;
@@ -310,19 +438,28 @@
       margin-top: 4px;
       border-radius: 4px;
     }
+
     .evaluation-title {
       font-family: 'Playfair Display', serif;
       font-size: 17px;
       font-weight: 700;
       margin-bottom: 6px;
     }
+
     .evaluation-desc {
       font-size: 12px;
       color: var(--muted);
       margin-bottom: 24px;
       line-height: 1.6;
     }
-    .scale-legend { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 28px; }
+
+    .scale-legend {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+
     .scale-pill {
       display: flex;
       align-items: center;
@@ -334,13 +471,19 @@
       font-size: 11px;
       color: var(--muted);
     }
+
     .scale-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
     }
-    .eval-rows { display: flex; flex-direction: column; }
+
+    .eval-rows {
+      display: flex;
+      flex-direction: column;
+    }
+
     .eval-row {
       display: grid;
       grid-template-columns: 1fr 230px;
@@ -349,54 +492,104 @@
       padding: 14px 0;
       border-bottom: 1px solid var(--border);
     }
-    .eval-row:last-child { border-bottom: none; }
-    .eval-statement { font-size: 13.5px; line-height: 1.55; }
-    .rating-wrap { display: flex; flex-direction: column; gap: 5px; }
-    .rating-bar { display: flex; gap: 3px; }
-    .rating-segment { height: 7px; flex: 1; border-radius: 2px; background: var(--border); }
+
+    .eval-row:last-child {
+      border-bottom: none;
+    }
+
+    .eval-statement {
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+
+    .rating-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .rating-bar {
+      display: flex;
+      gap: 3px;
+    }
+
+    .rating-segment {
+      height: 7px;
+      flex: 1;
+      border-radius: 2px;
+      background: var(--border);
+    }
+
     .rating-label {
       font-size: 10px;
       letter-spacing: 1px;
       text-transform: uppercase;
       font-weight: 600;
     }
-    .r-na { color: #bbb; }
-    .r-ne { color: #e05a5a; }
-    .r-bg { color: #e08a3a; }
-    .r-gw { color: #c9a84c; }
-    .r-mt { color: var(--sage); }
-    .seg-na .rating-segment { background: #bbb; }
-    .seg-ne .s1 { background: #e05a5a; }
+
+    .r-na {
+      color: #bbb;
+    }
+
+    .r-ne {
+      color: #e05a5a;
+    }
+
+    .r-bg {
+      color: #e08a3a;
+    }
+
+    .r-gw {
+      color: #c9a84c;
+    }
+
+    .r-mt {
+      color: var(--sage);
+    }
+
+    .seg-na .rating-segment {
+      background: #bbb;
+    }
+
+    .seg-ne .s1 {
+      background: #e05a5a;
+    }
+
     .seg-bg .s1,
-    .seg-bg .s2 { background: #e08a3a; }
+    .seg-bg .s2 {
+      background: #e08a3a;
+    }
+
     .seg-gw .s1,
     .seg-gw .s2,
-    .seg-gw .s3 { background: #c9a84c; }
+    .seg-gw .s3 {
+      background: #c9a84c;
+    }
+
     .seg-mt .s1,
     .seg-mt .s2,
     .seg-mt .s3,
-    .seg-mt .s4 { background: var(--sage); }
-
-    .pillar-divider { width: 60px; height: 3px; background: var(--gold); margin: 0 auto 80px; }
-
-    footer {
-      background: var(--ink);
-      color: rgba(250, 247, 240, 0.4);
-      text-align: center;
-      padding: 32px;
-      font-size: 12px;
-      letter-spacing: 1px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-      page-break-after: avoid;
-      page-break-before: avoid;
-      border-top: 4px solid var(--gold);
+    .seg-mt .s4 {
+      background: var(--sage);
     }
-    footer span { color: var(--gold); }
 
+    .pillar-divider {
+      width: 60px;
+      height: 3px;
+      background: var(--gold);
+      margin: 0 auto 80px;
+    }
+
+    /* Footer styles are inline or inherited */
     @media (max-width: 960px) {
-      .activity-data { grid-template-columns: 1fr 1fr; }
-      .activity-data.header-row { display: none; }
+      .activity-data {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .activity-data.header-row {
+        display: none;
+      }
+
       .ad-cell::before {
         content: attr(data-label);
         display: block;
@@ -406,45 +599,96 @@
         color: var(--gold);
         margin-bottom: 3px;
       }
-      .ad-cell { border-right: none; border-bottom: 1px solid var(--border); }
+
+      .ad-cell {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
     }
+
     @media (max-width: 600px) {
-      .report-header { padding: 48px 24px 40px; }
-      .header-content { max-width: 100%; }
-      .main-content { padding: 40px 16px; }
-      .activity-data { grid-template-columns: 1fr; }
-      .pillar-header { flex-direction: column; gap: 8px; }
-      .pillar-number { font-size: 48px; }
-      .meta-row { grid-template-columns: 1fr; gap: 16px; }
-      .cover-statement { font-size: 14px; padding: 18px 20px; }
+      .report-header {
+        padding: 48px 24px 40px;
+      }
+
+      .header-content {
+        max-width: 100%;
+      }
+
+      .main-content {
+        padding: 40px 16px;
+      }
+
+      .activity-data {
+        grid-template-columns: 1fr;
+      }
+
+      .pillar-header {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .pillar-number {
+        font-size: 48px;
+      }
+
+      .meta-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .cover-statement {
+        font-size: 14px;
+        padding: 18px 20px;
+      }
+
       .p-slot,
-      .p-caption { width: 100%; }
-      .p-slot { height: auto; aspect-ratio: 4 / 3; }
-      .eval-row { grid-template-columns: 1fr; gap: 8px; }
+      .p-caption {
+        width: 100%;
+      }
+
+      .p-slot {
+        height: auto;
+        aspect-ratio: 4 / 3;
+      }
+
+      .eval-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
     }
   </style>
 </head>
+
 <body>
   <header class="report-header">
     <div class="header-content">
+      {{#logos}}
+      <div class="cover-logos">
+        {{#primaryLogo}}<img src="{{primaryLogo}}" alt="Primary Logo"
+          class="cover-logo {{#invertPrimary}}inverted{{/invertPrimary}}" />{{/primaryLogo}}
+        {{#secondaryLogo}}<img src="{{secondaryLogo}}" alt="Secondary Logo"
+          class="cover-logo {{#invertSecondary}}inverted{{/invertSecondary}}" />{{/secondaryLogo}}
+      </div>
+      {{/logos}}
       <div class="org-badge">{{organizationBadge}}</div>
       <h1>{{reportTitle}}<br /><span>{{reportTheme}}</span></h1>
       <p class="report-subtitle">{{reportSubtitle}}</p>
       <div class="meta-row">
         {{#meta}}
-          <div class="meta-item {{#logo}}logo-card{{/logo}}">
-            {{#logo}}
-              <img src="{{logo}}" alt="{{logoAlt}}" class="meta-logo" />
-            {{/logo}}
-            {{^logo}}
-              <label>{{label}}</label>
-              <span>{{value}}</span>
-            {{/logo}}
-          </div>
+        <div class="meta-item {{#logo}}logo-card{{/logo}}">
+          {{#logo}}
+          <img src="{{logo}}" alt="{{logoAlt}}" class="meta-logo" />
+          {{/logo}}
+          {{^logo}}
+          <label>{{label}}</label>
+          <span>{{value}}</span>
+          {{/logo}}
+        </div>
         {{/meta}}
       </div>
       {{#coverStatement}}
-        <div class="cover-statement">{{coverStatement}}</div>
+      <div class="cover-statement">{{coverStatement}}</div>
       {{/coverStatement}}
     </div>
   </header>
@@ -452,118 +696,134 @@
   <div class="main-content">
 
     {{#pillars}}
-      <div class="pillar" data-pillar-id="{{id}}" style="animation-delay: {{animationDelay}}s">
-        <div class="pillar-header">
-          <div class="pillar-number">{{number}}</div>
-          <div class="pillar-title-block">
-            <span class="pillar-tag" style="background: {{tagColor}}">{{tagLabel}}</span>
-            <div class="pillar-title">{{title}}</div>
-            <div class="pillar-subtitle">{{subtitle}}</div>
-          </div>
+    <div class="pillar" data-pillar-id="{{id}}" style="animation-delay: {{animationDelay}}s">
+      <div class="pillar-header">
+        <div class="pillar-number">{{number}}</div>
+        <div class="pillar-title-block">
+          <div class="pillar-title">{{title}}</div>
         </div>
-        <div class="pillar-vision">{{vision}}</div>
-
-        {{#sections}}
-          <div class="activities-section">
-            <div class="activities-label">{{label}}</div>
-            <div class="activity-card">
-              <div class="activity-data header-row">
-                <div class="ad-cell">Activity</div>
-                <div class="ad-cell">Beneficiaries</div>
-                <div class="ad-cell">Participants</div>
-                <div class="ad-cell">Date</div>
-                <div class="ad-cell">Facilitators</div>
-                <div class="ad-cell">Follow-up</div>
-                <div class="ad-cell">Impact</div>
-              </div>
-            </div>
-
-            {{#activities}}
-              <div class="activity-card">
-                <div class="activity-data">
-                  <div class="ad-cell activity-name" data-label="Activity">{{name}}</div>
-                  <div class="ad-cell" data-label="Beneficiaries">{{beneficiaries}}</div>
-                  <div class="ad-cell" data-label="Participants">{{participants}}</div>
-                  <div class="ad-cell" data-label="Date">{{date}}</div>
-                  <div class="ad-cell" data-label="Facilitators">{{facilitators}}</div>
-                  <div class="ad-cell" data-label="Follow-up">{{followUp}}</div>
-                  <div class="ad-cell" data-label="Impact">
-                    {{#impact}}
-                      <span class="impact-tag">{{impact}}</span>
-                    {{/impact}}
-                    {{^impact}}
-                      <span>{{impactText}}</span>
-                    {{/impact}}
-                  </div>
-                </div>
-
-                {{#photos}}
-                  <div class="photo-proof">
-                    <div class="proof-header">
-                      <span class="proof-header-label">📷 Photo Evidence</span>
-                      <span class="proof-count">{{countLabel}}</span>
-                      <span class="proof-header-line"></span>
-                    </div>
-                    <div class="photo-grid">
-                      {{#items}}
-                        <div class="p-slot-wrap">
-                          <div class="p-slot">
-                            <img src="{{src}}" alt="{{caption}}" />
-                          </div>
-                          {{#caption}}
-                            <div class="p-caption">{{caption}}</div>
-                          {{/caption}}
-                        </div>
-                      {{/items}}
-                    </div>
-                  </div>
-                {{/photos}}
-              </div>
-            {{/activities}}
-          </div>
-        {{/sections}}
-
-        {{#evaluation}}
-          <div class="evaluation-section">
-            <div class="evaluation-title">{{title}}</div>
-            <div class="evaluation-desc">{{description}}</div>
-            <div class="scale-legend">
-              {{#legend}}
-                <div class="scale-pill">
-                  <span class="scale-dot" style="background: {{color}}"></span>
-                  {{label}}
-                </div>
-              {{/legend}}
-            </div>
-            <div class="eval-rows">
-              {{#questions}}
-                <div class="eval-row">
-                  <div class="eval-statement">{{statement}}</div>
-                  <div class="rating-wrap">
-                    <div class="rating-bar {{ratingClass}}">
-                      <div class="rating-segment s1"></div>
-                      <div class="rating-segment s2"></div>
-                      <div class="rating-segment s3"></div>
-                      <div class="rating-segment s4"></div>
-                    </div>
-                    <div class="rating-label {{labelClass}}">{{ratingLabel}}</div>
-                  </div>
-                </div>
-              {{/questions}}
-            </div>
-          </div>
-        {{/evaluation}}
       </div>
+      <div class="pillar-vision">{{vision}}</div>
 
-      {{^isLast}}
-        <div class="pillar-divider"></div>
-      {{/isLast}}
+      {{#sections}}
+      <div class="activities-section">
+        <div class="activities-label">{{label}}</div>
+
+        {{#activities}}
+        <div class="activity-card">
+          <div class="activity-content">
+            <div class="activity-name">{{name}}</div>
+            <div class="submitter-meta">
+              <span>Prepared by <strong>{{submitterName}}</strong> ({{submitterEmail}})</span>
+              <span class="dot"></span>
+              <span>Region: {{submitterRegion}}</span>
+            </div>
+
+            <div class="activity-info-grid">
+              <div class="info-cell">
+                <span class="info-label">Beneficiaries</span>
+                <span>{{beneficiaries}}</span>
+              </div>
+              <div class="info-cell">
+                <span class="info-label">Date Occurred</span>
+                <span>{{date}}</span>
+              </div>
+              <div class="info-cell">
+                <span class="info-label">Total Participants</span>
+                <span>{{participants}}</span>
+              </div>
+              <div class="info-cell">
+                <span class="info-label">Facilitators / Speakers</span>
+                <span>{{facilitators}}</span>
+              </div>
+            </div>
+
+            <div class="impact-section">
+              <span class="info-label" style="display:block;margin-bottom:6px;">Follow-up Practice</span>
+              <p style="font-size:13px; margin:0 0 16px 0;">{{followUp}}</p>
+
+              <span class="info-label" style="display:block;margin-bottom:6px;">Impact Summary</span>
+              <p style="font-size:13px; margin:0;">
+                {{#impact}}
+                <span class="impact-tag" style="margin-right:8px;">{{impact}}</span>
+                {{/impact}}
+                {{^impact}}
+                <span>{{impactText}}</span>
+                {{/impact}}
+              </p>
+            </div>
+          </div>
+
+          {{#photos}}
+          <div class="photo-proof">
+            <div class="proof-header">
+              <span class="proof-header-label">📷 Photo Evidence</span>
+              <span class="proof-count">{{countLabel}}</span>
+              <span class="proof-header-line"></span>
+            </div>
+            <div class="photo-grid">
+              {{#items}}
+              <div class="p-slot-wrap">
+                <div class="p-slot">
+                  <img src="{{src}}" alt="{{caption}}" />
+                </div>
+                {{#caption}}
+                <div class="p-caption">{{caption}}</div>
+                {{/caption}}
+              </div>
+              {{/items}}
+            </div>
+          </div>
+          {{/photos}}
+        </div>
+        {{/activities}}
+      </div>
+      {{/sections}}
+
+      {{#evaluation}}
+      <div class="evaluation-section">
+        <div class="evaluation-title">{{title}}</div>
+        <div class="evaluation-desc">{{description}}</div>
+        <div class="scale-legend">
+          {{#legend}}
+          <div class="scale-pill">
+            <span class="scale-dot" style="background: {{color}}"></span>
+            {{label}}
+          </div>
+          {{/legend}}
+        </div>
+        <div class="eval-rows">
+          {{#questions}}
+          <div class="eval-row">
+            <div class="eval-statement">{{statement}}</div>
+            <div class="rating-wrap">
+              <div class="rating-bar {{ratingClass}}">
+                <div class="rating-segment s1"></div>
+                <div class="rating-segment s2"></div>
+                <div class="rating-segment s3"></div>
+                <div class="rating-segment s4"></div>
+              </div>
+              <div class="rating-label {{labelClass}}">{{ratingLabel}}</div>
+            </div>
+          </div>
+          {{/questions}}
+        </div>
+      </div>
+      {{/evaluation}}
+    </div>
+
+    {{^isLast}}
+    <div class="pillar-divider"></div>
+    {{/isLast}}
     {{/pillars}}
   </div>
 
   <footer>
-    <p>{{footerLineOne}}</p>
-    <p style="margin-top: 8px;">{{footerLineTwo}}</p>
+    <div
+      style="font-size: 11px; letter-spacing: 1px; color: #888; text-align: center; padding: 24px 0; border-top: 1px solid #e8e0cc; margin-top: 40px; text-transform: uppercase;">
+      {{footerLineOne}} <span style="margin: 0 12px; color: #c9a84c;">•</span> {{footerLineTwo}}
+    </div>
   </footer>
 </body>
+
 </html>

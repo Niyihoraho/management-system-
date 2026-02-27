@@ -30,7 +30,7 @@ export default function Home() {
     }));
     setError(null);
     setSuccess(null);
-    
+
     // Clear field-specific errors
     if (fieldErrors[field]) {
       setFieldErrors(prev => {
@@ -43,28 +43,28 @@ export default function Home() {
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
-    
+
     if (!formData.email) {
       errors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       errors.email = 'Please enter a valid email address';
     }
-    
+
     if (!formData.password) {
       errors.password = 'Password is required';
     }
-    
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
 
@@ -82,7 +82,7 @@ export default function Home() {
 
       if (result?.ok) {
         setSuccess('Welcome back! Redirecting to your dashboard...');
-        
+
         // Redirect to dashboard
         setTimeout(() => {
           router.push('/dashboard');

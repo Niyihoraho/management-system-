@@ -44,7 +44,7 @@ export async function GET(_req: Request) {
                         slug: true,
                         description: true,
                         regionId: true,
-                        university: { select: { id: true } },
+                        InvitationUniversities: { select: { university: { select: { id: true } } } },
                     }
                 }
             }
@@ -64,7 +64,9 @@ export async function GET(_req: Request) {
 
             if (userScope.scope === 'university' && userScope.universityId) {
                 const payloadUniversityId = parseNumericId(payload.universityId);
-                const fromInvitation = request.invitationlink?.university?.some((u) => u.id === userScope.universityId);
+                const fromInvitation = request.invitationlink?.InvitationUniversities?.some(
+                    (assoc) => assoc.university?.id === userScope.universityId
+                );
                 return Boolean(fromInvitation) || payloadUniversityId === userScope.universityId;
             }
 
