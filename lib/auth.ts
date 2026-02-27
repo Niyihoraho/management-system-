@@ -130,5 +130,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development",
-  trustHost: process.env.NODE_ENV === "production" ? false : true,
+  trustHost: true,
 })
