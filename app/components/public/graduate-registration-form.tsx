@@ -930,17 +930,17 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
                         </Button>
                     )}
                     {step === 6 && (
-                        <Button type="submit" className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold tracking-wide py-6 rounded-xl shadow-xl shadow-blue-600/20 hover:shadow-2xl hover:shadow-blue-600/30 transition-all transform active:scale-[0.98] text-lg group" disabled={submitting}>
+                        <Button type="submit" className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold tracking-wide py-6 rounded-xl shadow-xl shadow-blue-600/20 hover:shadow-2xl hover:shadow-blue-600/30 transition-all transform active:scale-[0.98] text-[17px] sm:text-lg group" disabled={submitting}>
                             {submitting ? (
-                                <>
-                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                    Submitting Application...
-                                </>
+                                <div className="flex items-center justify-center gap-3">
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    <span>Submitting Application...</span>
+                                </div>
                             ) : (
-                                <>
-                                    Submit Graduate Registration
-                                    <Send className="ml-2 w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                                </>
+                                <div className="flex items-center justify-center gap-3">
+                                    <span>Submit Graduate Registration</span>
+                                    <Send className="w-5 h-5 flex-shrink-0 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                                </div>
                             )}
                         </Button>
                     )}
