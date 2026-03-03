@@ -56,7 +56,7 @@ export function JoinPageLayout({
                     <div className="mb-8 flex flex-col items-start gap-5">
                         {/* Logo & Title */}
                         <div className="flex items-center gap-4">
-                            <div className="h-12 sm:h-14 w-auto flex-shrink-0 flex items-center justify-center">
+                            <div className="h-12 sm:h-14 min-w-[48px] w-auto flex-shrink-0 flex items-center justify-center">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                     src="/logo-r.png"
