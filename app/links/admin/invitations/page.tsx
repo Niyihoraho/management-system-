@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { RefreshCw, Plus, Trash2, Copy, ExternalLink } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, Copy, ExternalLink, Loader2, CalendarPlus } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { CreateInvitationModal } from "@/components/create-invitation-modal";
+import { ExtendExpirationModal } from "@/components/extend-expiration-modal";
 import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 import {
     Breadcrumb,
@@ -23,12 +24,21 @@ import {
     SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 interface InvitationLink {
     id: string;
     slug: string;
     type: 'student' | 'graduate';
+    isMigration: boolean;
     expiration: string;
     description?: string;
     isActive: boolean;
@@ -47,6 +57,9 @@ export default function InvitationsPage() {
     const { userRole } = useRoleAccess();
     const [links, setLinks] = useState<InvitationLink[]>([]);
     const [loading, setLoading] = useState(true);
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; linkId: string | null; linkSlug: string }>({ isOpen: false, linkId: null, linkSlug: '' });
+    const [deleting, setDeleting] = useState(false);
+    const [extendModal, setExtendModal] = useState<{ isOpen: boolean; linkId: string; linkSlug: string; currentExpiration: string }>({ isOpen: false, linkId: '', linkSlug: '', currentExpiration: '' });
     const canManageInvitations = ['superadmin', 'region', 'university'].includes(userRole || '');
 
     const fetchLinks = useCallback(async () => {
@@ -79,17 +92,29 @@ export default function InvitationsPage() {
         toast.success("Link copied to clipboard");
     };
 
-    const deleteLink = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this link? It will stop working immediately.")) return;
+    const openDeleteModal = (link: InvitationLink) => {
+        setDeleteModal({ isOpen: true, linkId: link.id, linkSlug: link.slug });
+    };
+
+    const closeDeleteModal = () => {
+        setDeleteModal({ isOpen: false, linkId: null, linkSlug: '' });
+    };
+
+    const confirmDeleteLink = async () => {
+        if (!deleteModal.linkId) return;
+        setDeleting(true);
         try {
-            await axios.delete(`/api/invitations?id=${id}`);
+            await axios.delete(`/api/invitations?id=${deleteModal.linkId}`);
             toast.success("Link deleted");
+            closeDeleteModal();
             fetchLinks();
         } catch (err) {
             console.error(err);
             toast.error("Failed to delete link");
+        } finally {
+            setDeleting(false);
         }
-    }
+    };
 
     return (
         <SidebarProvider>
@@ -179,7 +204,14 @@ export default function InvitationsPage() {
                                                     <tr key={link.id} className="border-b transition-colors hover:bg-muted/50">
                                                         <td className="p-4 align-middle">
                                                             <div className="flex flex-col">
-                                                                <span className="font-medium">{link.description || 'No description'}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-medium">{link.description || 'No description'}</span>
+                                                                    {link.isMigration && (
+                                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">
+                                                                            MIGRATION
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 <code className="text-xs bg-muted px-1 py-0.5 rounded w-fit mt-1">/join/{link.slug}</code>
                                                             </div>
                                                         </td>
@@ -222,7 +254,18 @@ export default function InvitationsPage() {
                                                                     </Button>
                                                                 </Link>
                                                                 {canManageInvitations && (
-                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteLink(link.id)}>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="text-blue-600 hover:text-blue-700"
+                                                                        title="Extend Expiration"
+                                                                        onClick={() => setExtendModal({ isOpen: true, linkId: link.id, linkSlug: link.slug, currentExpiration: link.expiration })}
+                                                                    >
+                                                                        <CalendarPlus className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                                {canManageInvitations && (
+                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => openDeleteModal(link)}>
                                                                         <Trash2 className="h-4 w-4" />
                                                                     </Button>
                                                                 )}
@@ -238,6 +281,43 @@ export default function InvitationsPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Delete Confirmation Dialog */}
+                <Dialog open={deleteModal.isOpen} onOpenChange={closeDeleteModal}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete Invitation Link</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to delete <strong>/join/{deleteModal.linkSlug}</strong>? This link will stop working immediately and cannot be undone.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={closeDeleteModal} disabled={deleting}>
+                                Cancel
+                            </Button>
+                            <Button variant="destructive" onClick={confirmDeleteLink} disabled={deleting}>
+                                {deleting ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    'Delete Link'
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Extend Expiration Modal */}
+                <ExtendExpirationModal
+                    isOpen={extendModal.isOpen}
+                    onClose={() => setExtendModal({ isOpen: false, linkId: '', linkSlug: '', currentExpiration: '' })}
+                    onUpdated={fetchLinks}
+                    linkId={extendModal.linkId}
+                    linkSlug={extendModal.linkSlug}
+                    currentExpiration={extendModal.currentExpiration}
+                />
             </SidebarInset>
         </SidebarProvider>
     );

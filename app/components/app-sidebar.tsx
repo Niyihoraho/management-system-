@@ -8,6 +8,7 @@ import {
     Building2,
     Plug,
     FileText,
+    ArrowRightLeft,
 } from "lucide-react"
 
 import { NavMain } from "@/app/components/nav-main"
@@ -99,6 +100,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     return baseItems;
                 })(),
             },
+            // Migration - Superadmin only
+            ...(safeUserRole === "superadmin"
+                ? [{
+                    icon: ArrowRightLeft,
+                    title: "Migration",
+                    items: [
+                        {
+                            title: "Members",
+                            url: "/links/admin/migrations",
+                            pro: false,
+                        },
+                        {
+                            title: "Archive",
+                            url: "/links/admin/migrations/archive",
+                            pro: false,
+                        },
+                    ],
+                }]
+                : []),
             // Only show Organization for users with specific roles
             ...(safeUserRole === "superadmin" ||
                 safeUserRole === "national" || safeUserRole === "region" || safeUserRole === "university"

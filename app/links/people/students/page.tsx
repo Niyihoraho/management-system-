@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Search, RefreshCw, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban } from 'lucide-react';
+import { Search, RefreshCw, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { StudentForm } from "@/components/StudentForm";
 import { MigrateStudentModal } from "@/components/MigrateStudentModal";
+import { MigrateCampusStudentModal } from "@/components/MigrateCampusStudentModal";
 import { AssignGroupModal } from "@/components/AssignGroupModal";
 import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 import { toast } from "sonner";
@@ -102,12 +103,14 @@ interface Region {
 
 const studentStatusLabels: Record<string, string> = {
   active: 'Active',
+  migrating: 'Migrating',
   inactive: 'Inactive',
   graduated: 'Graduated',
 };
 
 const studentStatusColors: Record<string, string> = {
   active: 'bg-green-100 text-green-800',
+  migrating: 'bg-amber-100 text-amber-800',
   inactive: 'bg-gray-100 text-gray-800',
   graduated: 'bg-blue-100 text-blue-800',
 };
@@ -157,7 +160,15 @@ export default function StudentsPage() {
     student: null
   });
 
-  const fetchData = async () => {
+  const [campusMigrationModal, setCampusMigrationModal] = useState<{
+    isOpen: boolean;
+    student: Student | null;
+  }>({
+    isOpen: false,
+    student: null,
+  });
+
+  const fetchData = async (readAfterWrite = false) => {
     try {
       if (initialLoad) {
         setLoading(true);
@@ -166,8 +177,10 @@ export default function StudentsPage() {
       }
       setError(null);
 
+      const studentsHeaders = readAfterWrite ? { 'x-read-after-write': '1' } : undefined;
+
       const [studentsRes, universitiesRes, smallGroupsRes, regionsRes] = await Promise.all([
-        axios.get('/api/students'),
+        axios.get('/api/students', studentsHeaders ? { headers: studentsHeaders } : undefined),
         axios.get('/api/universities'),
         axios.get('/api/small-groups'),
         axios.get('/api/regions'),
@@ -329,12 +342,29 @@ export default function StudentsPage() {
   const handleMigrateStudent = async (data: any) => {
     try {
       await axios.post('/api/students/migrate', data);
-      setMigrationModal({ isOpen: false, student: null });
-      toast.success('Migration request submitted and is waiting for approval.');
+      // Don't close the modal — the success modal inside will show
+      // Refresh students list to reflect the inactive status
+      await fetchData(true);
     } catch (err: any) {
       console.error('Error migrating student:', err);
       toast.error(err.response?.data?.error || 'Failed to migrate student');
-      throw err; // Propagate to modal to stop loading state if needed, though modal handles it
+      throw err;
+    }
+  };
+
+  const handleCampusTransfer = async (data: {
+    studentId: number;
+    destinationRegionId: number;
+    destinationUniversityId: number;
+  }) => {
+    try {
+      await axios.post('/api/students/migrate-campus', data);
+      toast.success('Campus transfer request submitted for destination approval');
+      await fetchData(true);
+    } catch (err: any) {
+      console.error('Error submitting campus transfer:', err);
+      toast.error(err.response?.data?.error || 'Failed to submit campus transfer request');
+      throw err;
     }
   };
 
@@ -427,7 +457,7 @@ export default function StudentsPage() {
 
                 {/* Refresh Button */}
                 <button
-                  onClick={fetchData}
+                  onClick={() => fetchData()}
                   disabled={loading || isRefetching}
                   className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-foreground bg-muted/30 hover:bg-muted/50 border border-border/20 hover:border-border/40 rounded-lg transition-all duration-200 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -447,7 +477,7 @@ export default function StudentsPage() {
                   <span className="text-sm">{error}</span>
                 </div>
                 <button
-                  onClick={fetchData}
+                  onClick={() => fetchData()}
                   className="mt-2 text-sm text-destructive hover:text-destructive/80 underline"
                 >
                   Try again
@@ -582,12 +612,19 @@ export default function StudentsPage() {
                                     <DropdownMenuItem onClick={() => handleStatusChange(student.id, 'inactive')}>
                                       <XCircle className="mr-2 h-4 w-4 text-gray-500" /> Mark Inactive
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleStatusChange(student.id, 'suspended')}>
-                                      <Ban className="mr-2 h-4 w-4 text-red-500" /> Suspend
-                                    </DropdownMenuItem>
+
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => setMigrationModal({ isOpen: true, student })}>
+                                    <DropdownMenuItem
+                                      disabled={student.status !== 'active'}
+                                      onClick={() => setMigrationModal({ isOpen: true, student })}
+                                    >
                                       <GraduationCap className="mr-2 h-4 w-4 text-blue-600" /> Migrate to Graduate
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={student.status !== 'active'}
+                                      onClick={() => setCampusMigrationModal({ isOpen: true, student })}
+                                    >
+                                      <UserPlus className="mr-2 h-4 w-4 text-sky-600" /> Migrate Campus to Campus
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -679,6 +716,15 @@ export default function StudentsPage() {
         onClose={() => setMigrationModal({ isOpen: false, student: null })}
         student={migrationModal.student}
         onMigrate={handleMigrateStudent}
+      />
+
+      <MigrateCampusStudentModal
+        isOpen={campusMigrationModal.isOpen}
+        onClose={() => setCampusMigrationModal({ isOpen: false, student: null })}
+        student={campusMigrationModal.student}
+        regions={regions}
+        universities={universities}
+        onSubmit={handleCampusTransfer}
       />
 
       <AssignGroupModal

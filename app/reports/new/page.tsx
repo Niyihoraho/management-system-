@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { ActivityRow } from "@/components/reporting/activity-row";
 import { Plus, Save, Loader2, ArrowLeft } from "lucide-react";
+import { ReportSuccessModal } from "@/app/components/reporting/report-success-modal";
 
 type ConfigData = {
     id: number;
@@ -35,8 +36,6 @@ type ActivityLog = {
     isCustom?: boolean;
 };
 
-
-
 function ReportingWizardContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -45,6 +44,7 @@ function ReportingWizardContent() {
 
     const [loadingConfig, setLoadingConfig] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
     const [pillar, setPillar] = useState<ConfigData | null>(null);
 
     // Form State
@@ -57,7 +57,6 @@ function ReportingWizardContent() {
             return;
         }
 
-        // Fetch generic config and filter for this pillar
         const loadPillar = async () => {
             try {
                 const res = await fetch("/api/reporting/config");
@@ -73,21 +72,20 @@ function ReportingWizardContent() {
                 const found = data.find((p: ConfigData) => p.id === parseInt(pillarId));
                 if (found) {
                     setPillar(found);
-                    // Initialize empty activity
-                     setActivities([{
-                         tempId: crypto.randomUUID(),
-                         categoryId: "",
-                         activityName: "",
-                         beneficiaries: "",
-                         participantCount: "",
-                         dateOccurred: new Date().toISOString().split('T')[0],
-                         facilitators: "",
-                         followUpPractice: "",
-                         impactSummary: "",
-                         imageUrl: "",
-                         imageUrlSecondary: "",
-                         isCustom: false
-                     }]);
+                    setActivities([{
+                        tempId: crypto.randomUUID(),
+                        categoryId: "",
+                        activityName: "",
+                        beneficiaries: "",
+                        participantCount: "",
+                        dateOccurred: new Date().toISOString().split('T')[0],
+                        facilitators: "",
+                        followUpPractice: "",
+                        impactSummary: "",
+                        imageUrl: "",
+                        imageUrlSecondary: "",
+                        isCustom: false
+                    }]);
                 } else {
                     toast({ title: "Pillar Not Found", variant: "destructive" });
                     router.push("/reports");
@@ -100,23 +98,23 @@ function ReportingWizardContent() {
             }
         };
         loadPillar();
-    }, [pillarId]);
+    }, [pillarId, router, toast]);
 
     const addActivityRow = () => {
-         setActivities([...activities, {
-             tempId: crypto.randomUUID(),
-             categoryId: "",
-             activityName: "",
-             beneficiaries: "",
-             participantCount: "",
-             dateOccurred: new Date().toISOString().split('T')[0],
-             facilitators: "",
-             followUpPractice: "",
-             impactSummary: "",
-             imageUrl: "",
-             imageUrlSecondary: "",
-             isCustom: false
-         }]);
+        setActivities([...activities, {
+            tempId: crypto.randomUUID(),
+            categoryId: "",
+            activityName: "",
+            beneficiaries: "",
+            participantCount: "",
+            dateOccurred: new Date().toISOString().split('T')[0],
+            facilitators: "",
+            followUpPractice: "",
+            impactSummary: "",
+            imageUrl: "",
+            imageUrlSecondary: "",
+            isCustom: false
+        }]);
     };
 
     const removeActivityRow = (tempId: string) => {
@@ -125,18 +123,12 @@ function ReportingWizardContent() {
     };
 
     const updateActivity = (tempId: string, updates: Partial<ActivityLog>) => {
-        console.log(`[Page] updateActivity for ${tempId}`, updates);
-        setActivities(prev => {
-            const next = prev.map(a => a.tempId === tempId ? { ...a, ...updates } : a);
-            console.log(`[updateActivity] new state for ${tempId}:`, next.find(a => a.tempId === tempId));
-            return next;
-        });
+        setActivities(prev => prev.map(a => a.tempId === tempId ? { ...a, ...updates } : a));
     };
 
     const handleSubmit = async () => {
         if (!pillar) return;
 
-        // Basic Validation
         const invalid = activities.some(a => !a.categoryId || !a.activityName || !a.participantCount);
         const missingImages = activities.some(a => !a.imageUrl || !a.imageUrlSecondary);
         if (invalid) {
@@ -152,7 +144,7 @@ function ReportingWizardContent() {
         try {
             const payload = {
                 priorityId: pillar.id,
-                regionId: null, // Should be fetched from user context if needed
+                regionId: null,
                 activities: activities.map(a => ({
                     ...a,
                     participantCount: parseInt(a.participantCount)
@@ -168,8 +160,8 @@ function ReportingWizardContent() {
 
             if (!res.ok) throw new Error("Submission failed");
 
+            setSubmitted(true);
             toast({ title: "Report Submitted Successfully!" });
-            router.push("/reports");
         } catch (error) {
             console.error(error);
             toast({ title: "Error submitting report", variant: "destructive" });
@@ -180,6 +172,21 @@ function ReportingWizardContent() {
 
     if (loadingConfig) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
     if (!pillar) return null;
+
+    if (submitted) {
+        return (
+            <div className="container mx-auto py-24 max-w-2xl px-4">
+                <Card className="rounded-2xl shadow-2xl border-border p-6 sm:p-10 bg-card">
+                    <ReportSuccessModal
+                        title="Report Submitted!"
+                        message={`Your strategic report for "${pillar.name}" has been successfully received. The administration will review your activities and evaluation shortly.`}
+                        buttonText="Return to Reports"
+                        onButtonClick={() => router.push("/reports")}
+                    />
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto py-8 max-w-5xl space-y-8">
@@ -193,7 +200,6 @@ function ReportingWizardContent() {
                 </div>
             </div>
 
-            {/* SECTION 1: ACTIVITIES */}
             <section className="space-y-4">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-semibold">1. Activity Logs</h2>
@@ -217,9 +223,6 @@ function ReportingWizardContent() {
                 </div>
             </section>
 
-
-
-            {/* SUBMIT */}
             <div className="flex justify-end gap-4 py-8">
                 <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
                 <Button size="lg" onClick={handleSubmit} disabled={submitting}>

@@ -32,14 +32,16 @@ export async function POST(req: Request) {
             include: {
                 invitationlink: {
                     include: {
-                        university: true
+                        InvitationUniversities: true
                     }
                 }
             },
         });
 
         const payload = request?.payload as Record<string, unknown> | null;
-        const isStudentMigration = payload?.source === 'student_migration';
+        const sourceType = typeof payload?.source === 'string' ? payload.source : null;
+        const isStudentMigration = sourceType === 'student_migration';
+        const isCampusTransfer = sourceType === 'student_campus_transfer';
 
         if (!request || request.status !== 'PENDING') {
             return new NextResponse('Request not found or already processed', { status: 404 });
@@ -54,7 +56,7 @@ export async function POST(req: Request) {
         } else if (userScope.scope === 'university') {
             // University admins can reject if the invitation link includes their university
             const payloadUniversityId = parseNumericId(payload?.universityId);
-            const hasUniversity = request.invitationlink?.university?.some(u => u.id === userScope.universityId)
+            const hasUniversity = request.invitationlink?.InvitationUniversities?.some(iu => iu.A === userScope.universityId)
                 || payloadUniversityId === userScope.universityId;
             if (!hasUniversity) {
                 return new NextResponse('Forbidden: You can only reject requests for your university', { status: 403 });
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
 
         // If this was a migration request, reactivate the source student on rejection
         const payloadData = (payload ?? {}) as Record<string, unknown>;
-        if (isStudentMigration && typeof payloadData.sourceStudentId === 'number') {
+        if ((isStudentMigration || isCampusTransfer) && typeof payloadData.sourceStudentId === 'number') {
             await prisma.student.updateMany({
                 where: { id: payloadData.sourceStudentId },
                 data: {

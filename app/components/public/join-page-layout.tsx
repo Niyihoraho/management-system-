@@ -56,9 +56,13 @@ export function JoinPageLayout({
                     <div className="mb-8 flex flex-col items-start gap-5">
                         {/* Logo & Title */}
                         <div className="flex items-center gap-4">
-                            <div className="h-14 w-auto flex items-center justify-center">
+                            <div className="h-12 sm:h-14 w-auto flex-shrink-0 flex items-center justify-center">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/logo-r.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-sm" />
+                                <img
+                                    src="/logo-r.png"
+                                    alt="Logo"
+                                    className="h-full w-auto object-contain drop-shadow-sm flex-shrink-0"
+                                />
                             </div>
                             <div>
                                 <h1 className="text-3xl font-bold text-[#0b1121] tracking-tight leading-tight">Ministry System</h1>

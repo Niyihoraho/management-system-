@@ -11,14 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowRightLeft, Building2, Phone, Mail, User } from "lucide-react";
 
 interface Student {
     id: number;
@@ -38,22 +31,9 @@ interface MigrateStudentModalProps {
     student: Student | null;
     onMigrate: (data: {
         studentId: number;
-        graduationYear: string;
-        profession: string;
         phone: string;
         email: string;
-        residenceProvince: string;
-        residenceDistrict: string;
-        residenceSector: string;
-        provinceId?: string;
-        districtId?: string;
-        sectorId?: string;
     }) => Promise<void>;
-}
-
-interface LocationOption {
-    id: string;
-    name: string;
 }
 
 export function MigrateStudentModal({
@@ -63,154 +43,20 @@ export function MigrateStudentModal({
     onMigrate,
 }: MigrateStudentModalProps) {
     const [loading, setLoading] = useState(false);
-    const [provinces, setProvinces] = useState<LocationOption[]>([]);
-    const [districts, setDistricts] = useState<LocationOption[]>([]);
-    const [sectors, setSectors] = useState<LocationOption[]>([]);
-    const [selectedProvinceId, setSelectedProvinceId] = useState("");
-    const [selectedDistrictId, setSelectedDistrictId] = useState("");
-    const [selectedSectorId, setSelectedSectorId] = useState("");
+    const [showSuccess, setShowSuccess] = useState(false);
     const [formData, setFormData] = useState({
-        graduationYear: new Date().getFullYear().toString(),
-        profession: "",
         phone: "",
         email: "",
-        residenceProvince: "",
-        residenceDistrict: "",
-        residenceSector: "",
     });
-
-    const fetchDistricts = async (provinceId: string) => {
-        if (!provinceId) {
-            setDistricts([]);
-            return [];
-        }
-
-        const response = await axios.get(`/api/locations?type=districts&parentId=${provinceId}`);
-        const items = Array.isArray(response.data) ? response.data : [];
-        setDistricts(items);
-        return items as LocationOption[];
-    };
-
-    const fetchSectors = async (districtId: string) => {
-        if (!districtId) {
-            setSectors([]);
-            return [];
-        }
-
-        const response = await axios.get(`/api/locations?type=sectors&parentId=${districtId}`);
-        const items = Array.isArray(response.data) ? response.data : [];
-        setSectors(items);
-        return items as LocationOption[];
-    };
 
     useEffect(() => {
         if (!isOpen || !student) return;
-
-        let cancelled = false;
-
-        const initialize = async () => {
-            try {
-                setFormData({
-                    graduationYear: new Date().getFullYear().toString(),
-                    profession: "",
-                    phone: student.phone || "",
-                    email: student.email || "",
-                    residenceProvince: student.placeOfBirthProvince || "",
-                    residenceDistrict: student.placeOfBirthDistrict || "",
-                    residenceSector: student.placeOfBirthSector || "",
-                });
-
-                setSelectedProvinceId("");
-                setSelectedDistrictId("");
-                setSelectedSectorId("");
-                setDistricts([]);
-                setSectors([]);
-
-                const provincesRes = await axios.get('/api/locations?type=provinces');
-                if (cancelled) return;
-
-                const provinceItems = Array.isArray(provincesRes.data) ? provincesRes.data as LocationOption[] : [];
-                setProvinces(provinceItems);
-
-                const matchedProvince = provinceItems.find((p) => p.name === student.placeOfBirthProvince);
-                if (!matchedProvince) return;
-
-                setSelectedProvinceId(matchedProvince.id);
-                const districtItems = await fetchDistricts(matchedProvince.id);
-                if (cancelled) return;
-
-                const matchedDistrict = districtItems.find((d) => d.name === student.placeOfBirthDistrict);
-                if (!matchedDistrict) return;
-
-                setSelectedDistrictId(matchedDistrict.id);
-                const sectorItems = await fetchSectors(matchedDistrict.id);
-                if (cancelled) return;
-
-                const matchedSector = sectorItems.find((s) => s.name === student.placeOfBirthSector);
-                if (matchedSector) {
-                    setSelectedSectorId(matchedSector.id);
-                }
-            } catch (error) {
-                console.error('Failed to load location options', error);
-            }
-        };
-
-        initialize();
-
-        return () => {
-            cancelled = true;
-        };
+        setFormData({
+            phone: student.phone || "",
+            email: student.email || "",
+        });
+        setShowSuccess(false);
     }, [isOpen, student]);
-
-    const handleProvinceChange = async (provinceId: string) => {
-        setSelectedProvinceId(provinceId);
-        setSelectedDistrictId("");
-        setSelectedSectorId("");
-        setSectors([]);
-
-        const provinceName = provinces.find((p) => p.id === provinceId)?.name || "";
-        setFormData((prev) => ({
-            ...prev,
-            residenceProvince: provinceName,
-            residenceDistrict: "",
-            residenceSector: "",
-        }));
-
-        try {
-            await fetchDistricts(provinceId);
-        } catch (error) {
-            console.error('Failed to load districts', error);
-            setDistricts([]);
-        }
-    };
-
-    const handleDistrictChange = async (districtId: string) => {
-        setSelectedDistrictId(districtId);
-        setSelectedSectorId("");
-
-        const districtName = districts.find((d) => d.id === districtId)?.name || "";
-        setFormData((prev) => ({
-            ...prev,
-            residenceDistrict: districtName,
-            residenceSector: "",
-        }));
-
-        try {
-            await fetchSectors(districtId);
-        } catch (error) {
-            console.error('Failed to load sectors', error);
-            setSectors([]);
-        }
-    };
-
-    const handleSectorChange = (sectorId: string) => {
-        setSelectedSectorId(sectorId);
-        const sectorName = sectors.find((s) => s.id === sectorId)?.name || "";
-        setFormData((prev) => ({
-            ...prev,
-            residenceSector: sectorName,
-        }));
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -221,11 +67,8 @@ export function MigrateStudentModal({
             await onMigrate({
                 studentId: student.id,
                 ...formData,
-                provinceId: selectedProvinceId || undefined,
-                districtId: selectedDistrictId || undefined,
-                sectorId: selectedSectorId || undefined,
             });
-            onClose();
+            setShowSuccess(true);
         } catch (error) {
             console.error("Migration failed", error);
         } finally {
@@ -233,110 +76,119 @@ export function MigrateStudentModal({
         }
     };
 
+    const handleClose = () => {
+        setShowSuccess(false);
+        onClose();
+    };
+
     if (!student) return null;
 
+    // Success Modal
+    if (showSuccess) {
+        return (
+            <Dialog open={isOpen} onOpenChange={handleClose}>
+                <DialogContent className="sm:max-w-[420px]">
+                    <div className="flex flex-col items-center py-6 space-y-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                            <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+                        </div>
+                        <div className="text-center space-y-2">
+                            <h3 className="text-lg font-semibold">Migration Submitted!</h3>
+                            <p className="text-sm text-muted-foreground">
+                                <strong>{student.fullName}</strong> is now marked as migrating.
+                                The student can complete their migration using the public migration form.
+                            </p>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-3 w-full space-y-1.5 text-sm">
+                            <div className="flex items-center gap-2">
+                                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span>{student.fullName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span>{student.university?.name || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span>{formData.phone || 'N/A'}</span>
+                            </div>
+                            {formData.email && (
+                                <div className="flex items-center gap-2">
+                                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span>{formData.email}</span>
+                                </div>
+                            )}
+                        </div>
+                        <Button onClick={handleClose} className="w-full">
+                            Done
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
+    // Migration Confirmation Form
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[460px]">
                 <DialogHeader>
-                    <DialogTitle>Migrate to Graduate</DialogTitle>
+                    <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                            <ArrowRightLeft className="h-4 w-4 text-amber-700" />
+                        </div>
+                        <DialogTitle>Confirm Migration</DialogTitle>
+                    </div>
                     <DialogDescription>
-                        Send <strong>{student.fullName}</strong> to the Graduates approval queue. An approver must review before final migration.
+                        Migrate <strong>{student.fullName}</strong> from student to graduate. This will send the request for approval.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="graduationYear">Graduation Year</Label>
-                            <Input
-                                id="graduationYear"
-                                value={formData.graduationYear}
-                                onChange={(e) => setFormData({ ...formData, graduationYear: e.target.value })}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="profession">Profession (Optional)</Label>
-                            <Input
-                                id="profession"
-                                value={formData.profession}
-                                onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
-                                placeholder="e.g. Software Engineer"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="phone">Phone</Label>
-                            <Input
-                                id="phone"
-                                value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            />
+                <form onSubmit={handleSubmit} className="space-y-4 py-2">
+                    {/* Student Info Summary */}
+                    <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Student Details</p>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                                <span className="text-muted-foreground text-xs">Name</span>
+                                <p className="font-medium">{student.fullName}</p>
+                            </div>
+                            <div>
+                                <span className="text-muted-foreground text-xs">University</span>
+                                <p className="font-medium">{student.university?.name || 'N/A'}</p>
+                            </div>
+                            {student.course && (
+                                <div>
+                                    <span className="text-muted-foreground text-xs">Course</span>
+                                    <p className="font-medium">{student.course}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-
-
-                    <div className="grid grid-cols-3 gap-4 border-t pt-4">
-                        <div className="col-span-3">
-                            <Label className="text-sm font-semibold">Current Residence</Label>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="residenceProvince">Province</Label>
-                            <Select value={selectedProvinceId} onValueChange={handleProvinceChange}>
-                                <SelectTrigger id="residenceProvince">
-                                    <SelectValue placeholder="Select province" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {provinces.map((province) => (
-                                        <SelectItem key={province.id} value={province.id}>
-                                            {province.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="residenceDistrict">District</Label>
-                            <Select value={selectedDistrictId} onValueChange={handleDistrictChange} disabled={!selectedProvinceId}>
-                                <SelectTrigger id="residenceDistrict">
-                                    <SelectValue placeholder="Select district" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {districts.map((district) => (
-                                        <SelectItem key={district.id} value={district.id}>
-                                            {district.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="residenceSector">Sector</Label>
-                            <Select value={selectedSectorId} onValueChange={handleSectorChange} disabled={!selectedDistrictId}>
-                                <SelectTrigger id="residenceSector">
-                                    <SelectValue placeholder="Select sector" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sectors.map((sector) => (
-                                        <SelectItem key={sector.id} value={sector.id}>
-                                            {sector.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                    {/* Editable Contact Info */}
+                    <div className="space-y-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contact Information</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="phone" className="text-xs">Phone</Label>
+                                <Input
+                                    id="phone"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    placeholder="Phone number"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="email" className="text-xs">Email</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    placeholder="Email address"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -344,19 +196,22 @@ export function MigrateStudentModal({
                         <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={loading}>
+                        <Button type="submit" disabled={loading} className="bg-amber-600 hover:bg-amber-700">
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     Migrating...
                                 </>
                             ) : (
-                                "Submit for Approval"
+                                <>
+                                    <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                    Confirm Migration
+                                </>
                             )}
                         </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
-        </Dialog >
+        </Dialog>
     );
 }

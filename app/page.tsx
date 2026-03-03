@@ -1,17 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, Lock, LogIn, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, LogIn, AlertCircle, CheckCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -22,6 +23,30 @@ export default function Home() {
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const router = useRouter();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      router.replace('/dashboard');
+    }
+  }, [status, session, router]);
+
+  // Show loading state while checking session
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If authenticated, show nothing (useEffect will redirect)
+  if (status === "authenticated") {
+    return null;
+  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({

@@ -3,17 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Trash2, Building2, AlertCircle, MoreVertical, Package, Calendar, MapPin, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, RefreshCw, Building2, AlertCircle, MapPin, ChevronDown, ChevronRight } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
-import CampusDataForm from "@/app/components/campus-data-form";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -37,14 +28,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import {
     Select,
     SelectContent,
@@ -54,16 +38,15 @@ import {
 } from "@/components/ui/select";
 import { useRoleAccess } from "@/app/components/providers/role-access-provider";
 
-interface CampusData {
+interface University {
     id: number;
-    universityId: number;
-    year: number;
-    studentsCount: number;
-    faculties: string;
-    associations: string;
-    cults: string;
-    university: { name: string; region: { id: number; name: string } };
-    updatedAt: string;
+    name: string;
+    regionId: number;
+    studentPopulation?: number;
+    region: { name: string };
+    cult?: { name: string }[];
+    faculty?: { name: string }[];
+    association?: { name: string }[];
 }
 
 interface Region {
@@ -71,26 +54,15 @@ interface Region {
     name: string;
 }
 
-interface University {
-    id: number;
-    name: string;
-}
-
 interface GroupedData {
     region: { id: number; name: string };
-    universities: CampusData[];
+    universities: University[];
 }
 
 function RegionRowGroup({
     regionGroup,
-    canManageRecords,
-    onEdit,
-    onDelete
 }: {
     regionGroup: GroupedData;
-    canManageRecords: boolean;
-    onEdit: (item: CampusData) => void;
-    onDelete: (item: CampusData) => void;
 }) {
     const [isOpen, setIsOpen] = useState(true);
 
@@ -99,7 +71,7 @@ function RegionRowGroup({
             <TableRow
                 className="group transition-colors hover:bg-muted/30 bg-muted/10"
             >
-                <TableCell className="font-medium" colSpan={canManageRecords ? 7 : 6}>
+                <TableCell className="font-medium" colSpan={5}>
                     <div className="flex items-center gap-2">
                         <Button
                             variant="ghost"
@@ -111,69 +83,60 @@ function RegionRowGroup({
                         </Button>
                         <MapPin className="h-4 w-4 text-primary/70" />
                         <span>{regionGroup.region.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">({regionGroup.universities.length} Campuses)</span>
+                        <span className="text-xs text-muted-foreground ml-2">({regionGroup.universities.length} {regionGroup.universities.length === 1 ? 'University' : 'Universities'})</span>
                     </div>
                 </TableCell>
             </TableRow>
 
             {/* University Rows */}
-            {isOpen && regionGroup.universities.map((item) => (
-                <TableRow key={item.id} className="hover:bg-muted/50">
+            {isOpen && regionGroup.universities.map((university) => (
+                <TableRow key={university.id} className="hover:bg-muted/50">
                     <TableCell className="pl-12">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                                 <Building2 className="w-4 h-4 text-primary" />
                             </div>
                             <div>
-                                <p className="font-medium text-sm">{item.university.name}</p>
+                                <p className="font-medium text-sm">{university.name}</p>
                             </div>
                         </div>
                     </TableCell>
-                    <TableCell className="text-center">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {item.year}
-                        </span>
+                    <TableCell className="text-center font-medium">
+                        {university.studentPopulation?.toLocaleString() || '0'}
                     </TableCell>
-                    <TableCell className="text-center font-medium">{item.studentsCount.toLocaleString()}</TableCell>
                     <TableCell>
-                        <div className="line-clamp-2 max-w-[200px] text-xs text-muted-foreground" title={item.faculties}>
-                            {item.faculties || '-'}
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {university.faculty && university.faculty.length > 0 ? (
+                                university.faculty.map((f, i) => (
+                                    <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">{f.name}</Badge>
+                                ))
+                            ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                            )}
                         </div>
                     </TableCell>
                     <TableCell>
-                        <div className="line-clamp-2 max-w-[200px] text-xs text-muted-foreground" title={item.associations}>
-                            {item.associations || '-'}
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {university.association && university.association.length > 0 ? (
+                                university.association.map((a, i) => (
+                                    <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">{a.name}</Badge>
+                                ))
+                            ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                            )}
                         </div>
                     </TableCell>
                     <TableCell>
-                        <div className="line-clamp-2 max-w-[200px] text-xs text-muted-foreground" title={item.cults}>
-                            {item.cults || '-'}
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {university.cult && university.cult.length > 0 ? (
+                                university.cult.map((c, i) => (
+                                    <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">{c.name}</Badge>
+                                ))
+                            ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                            )}
                         </div>
                     </TableCell>
-                    {canManageRecords && (
-                        <TableCell className="text-right">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <MoreVertical className="w-4 h-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => onEdit(item)}>
-                                        <Edit className="mr-2 h-4 w-4" /> Edit Details
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        onClick={() => onDelete(item)}
-                                        className="text-red-600 focus:text-red-600"
-                                    >
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                    )}
                 </TableRow>
             ))}
         </>
@@ -185,27 +148,11 @@ export default function CampusDataPage() {
     const { userRole, userScope, isLoading: roleLoading } = useRoleAccess();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRegion, setSelectedRegion] = useState<string>("all");
-    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-    const [data, setData] = useState<CampusData[]>([]);
-    const [regions, setRegions] = useState<Region[]>([]);
     const [universities, setUniversities] = useState<University[]>([]);
+    const [regions, setRegions] = useState<Region[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Modal States
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingData, setEditingData] = useState<CampusData | null>(null);
-    const [deleteModal, setDeleteModal] = useState<{
-        isOpen: boolean;
-        id: number | null;
-        name: string;
-    }>({
-        isOpen: false,
-        id: null,
-        name: ''
-    });
-    const [deleting, setDeleting] = useState(false);
-    const canManageRecords = userRole === 'superadmin' || userRole === 'national' || userRole === 'region';
     const canSelectRegion = userRole !== 'university';
 
     const fetchData = async () => {
@@ -213,20 +160,18 @@ export default function CampusDataPage() {
             setLoading(true);
             setError(null);
 
-            let url = `/api/campus-data?year=${selectedYear}`;
+            let universityUrl = '/api/universities';
             if (selectedRegion !== "all") {
-                url += `&regionId=${selectedRegion}`;
+                universityUrl += `?regionId=${selectedRegion}`;
             }
 
-            const [dataRes, regionsRes, universitiesRes] = await Promise.all([
-                axios.get(url),
+            const [universitiesRes, regionsRes] = await Promise.all([
+                axios.get(universityUrl),
                 axios.get('/api/regions'),
-                axios.get('/api/universities')
             ]);
 
-            setData(dataRes.data);
-            setRegions(regionsRes.data);
-            setUniversities(universitiesRes.data);
+            setUniversities(universitiesRes.data || []);
+            setRegions(regionsRes.data || []);
         } catch (err: any) {
             console.error('Error fetching data:', err);
             setError('Failed to fetch data.');
@@ -248,67 +193,28 @@ export default function CampusDataPage() {
         }
 
         fetchData();
-    }, [roleLoading, router, selectedYear, selectedRegion, userRole, userScope?.regionId]);
+    }, [roleLoading, router, selectedRegion, userRole, userScope?.regionId]);
 
-    // Create Handler
-    const handleCreate = async (formData: any) => {
-        try {
-            await axios.post('/api/campus-data', formData);
-            fetchData();
-        } catch (err: any) {
-            console.error('Error creating data:', err);
-            throw new Error(err.response?.data?.error || 'Failed to create record');
-        }
-    };
-
-    // Update Handler
-    const handleUpdate = async (formData: any) => {
-        if (!editingData) return;
-        try {
-            await axios.put('/api/campus-data', { ...formData, id: editingData.id });
-            fetchData();
-            setEditingData(null);
-        } catch (err: any) {
-            console.error('Error updating data:', err);
-            throw new Error(err.response?.data?.error || 'Failed to update record');
-        }
-    };
-
-    // Delete Handler
-    const handleDelete = async () => {
-        if (!deleteModal.id) return;
-        setDeleting(true);
-        try {
-            await axios.delete(`/api/campus-data?id=${deleteModal.id}`);
-            setData(prev => prev.filter(item => item.id !== deleteModal.id));
-            setDeleteModal({ isOpen: false, id: null, name: '' });
-        } catch (err) {
-            console.error('Error deleting data:', err);
-        } finally {
-            setDeleting(false);
-        }
-    };
-
-    const filteredData = data.filter(item => {
+    const filteredData = universities.filter(university => {
         if (!searchTerm) return true;
         const searchLower = searchTerm.toLowerCase();
         return (
-            item.university.name.toLowerCase().includes(searchLower) ||
-            item.university.region.name.toLowerCase().includes(searchLower)
+            university.name.toLowerCase().includes(searchLower) ||
+            university.region?.name?.toLowerCase().includes(searchLower)
         );
     });
 
-    // Group the data by Region
-    const groupedData: GroupedData[] = filteredData.reduce((acc: GroupedData[], item) => {
-        const regionId = item.university.region.id;
+    // Group by Region
+    const groupedData: GroupedData[] = filteredData.reduce((acc: GroupedData[], university) => {
+        const regionId = university.regionId;
         const existingRegion = acc.find(g => g.region.id === regionId);
 
         if (existingRegion) {
-            existingRegion.universities.push(item);
+            existingRegion.universities.push(university);
         } else {
             acc.push({
-                region: item.university.region,
-                universities: [item]
+                region: { id: regionId, name: university.region?.name || 'Unknown' },
+                universities: [university]
             });
         }
         return acc;
@@ -316,8 +222,6 @@ export default function CampusDataPage() {
 
     // Sort regions alphabetically
     groupedData.sort((a, b) => a.region.name.localeCompare(b.region.name));
-
-    const years = Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i);
 
     return (
         <SidebarProvider>
@@ -349,10 +253,10 @@ export default function CampusDataPage() {
                         {/* Header */}
                         <div className="mb-8">
                             <h1 className="text-3xl font-bold text-foreground mb-2">Campus Information</h1>
-                            <p className="text-muted-foreground">Manage campus student counts, faculties, associations, and cults across universities.</p>
+                            <p className="text-muted-foreground">View campus student counts, faculties, associations, and cults across universities. Data is managed from the <a href="/links/organization/universities" className="text-primary hover:underline font-medium">Universities</a> page.</p>
                         </div>
 
-                        {/* Search and Actions */}
+                        {/* Search and Filters */}
                         <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between mb-6">
                             <div className="flex flex-col sm:flex-row gap-3 flex-1">
                                 {/* Search */}
@@ -378,59 +282,25 @@ export default function CampusDataPage() {
                                 </button>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                                {/* Year Filter */}
-                                <div className="w-full sm:w-32">
-                                    <Select
-                                        value={selectedYear}
-                                        onValueChange={setSelectedYear}
-                                    >
-                                        <SelectTrigger className="w-full">
-                                            <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
-                                            <SelectValue placeholder="Year" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {years.map((y) => (
-                                                <SelectItem key={y} value={y.toString()}>
-                                                    {y}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Region Filter */}
-                                <div className="w-full sm:w-48">
-                                    <Select
-                                        value={selectedRegion}
-                                        onValueChange={setSelectedRegion}
-                                        disabled={!canSelectRegion}
-                                    >
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="All Regions" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {canSelectRegion && <SelectItem value="all">All Regions</SelectItem>}
-                                            {regions.map((region) => (
-                                                <SelectItem key={region.id} value={region.id.toString()}>
-                                                    {region.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Add Button */}
-                                {canManageRecords && (
-                                    <Button
-                                        onClick={() => setIsFormOpen(true)}
-                                        className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all shadow-sm text-sm"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        <span className="hidden sm:inline">Add Record</span>
-                                        <span className="sm:hidden">Add</span>
-                                    </Button>
-                                )}
+                            {/* Region Filter */}
+                            <div className="w-full sm:w-48">
+                                <Select
+                                    value={selectedRegion}
+                                    onValueChange={setSelectedRegion}
+                                    disabled={!canSelectRegion}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="All Regions" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {canSelectRegion && <SelectItem value="all">All Regions</SelectItem>}
+                                        {regions.map((region) => (
+                                            <SelectItem key={region.id} value={region.id.toString()}>
+                                                {region.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
@@ -454,22 +324,20 @@ export default function CampusDataPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="bg-muted/50">
-                                                <TableHead className="w-[300px] font-semibold">Region / Campus Name</TableHead>
-                                                <TableHead className="font-semibold text-center w-[100px]">Year</TableHead>
-                                                <TableHead className="font-semibold text-center w-[150px]">All Students</TableHead>
+                                                <TableHead className="w-[300px] font-semibold">Region / University</TableHead>
+                                                <TableHead className="font-semibold text-center w-[150px]">Student Population</TableHead>
                                                 <TableHead className="font-semibold w-[200px]">Faculties</TableHead>
                                                 <TableHead className="font-semibold w-[200px]">Associations</TableHead>
                                                 <TableHead className="font-semibold w-[200px]">Cults</TableHead>
-                                                {canManageRecords && <TableHead className="text-right font-semibold w-[100px]">Actions</TableHead>}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {groupedData.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={canManageRecords ? 7 : 6} className="text-center py-12 text-muted-foreground">
+                                                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                                                         <div className="flex flex-col items-center gap-2">
-                                                            <Package className="w-12 h-12 text-muted-foreground/50" />
-                                                            <p>No records found for {selectedYear} {selectedRegion !== "all" ? "in this region" : ""}.</p>
+                                                            <Building2 className="w-12 h-12 text-muted-foreground/50" />
+                                                            <p>No universities found{selectedRegion !== "all" ? " in this region" : ""}.</p>
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
@@ -478,9 +346,6 @@ export default function CampusDataPage() {
                                                     <RegionRowGroup
                                                         key={group.region.id}
                                                         regionGroup={group}
-                                                        canManageRecords={canManageRecords}
-                                                        onEdit={(item) => setEditingData(item)}
-                                                        onDelete={(item) => setDeleteModal({ isOpen: true, id: item.id, name: item.university.name })}
                                                     />
                                                 ))
                                             )}
@@ -488,66 +353,19 @@ export default function CampusDataPage() {
                                     </Table>
                                 </div>
                             )}
+
+                            {/* Table Footer */}
+                            {!loading && filteredData.length > 0 && (
+                                <div className="bg-muted/50 px-6 py-3 border-t border-border">
+                                    <div className="text-sm text-muted-foreground">
+                                        Showing <span className="font-medium text-foreground">{filteredData.length}</span> of <span className="font-medium text-foreground">{universities.length}</span> universities
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </SidebarInset>
-
-            {/* Create Modal */}
-            <CampusDataForm
-                isOpen={isFormOpen}
-                onClose={() => setIsFormOpen(false)}
-                onSubmit={handleCreate}
-                title="Add Campus Information"
-                universities={universities}
-            />
-
-            {/* Edit Modal */}
-            {editingData && (
-                <CampusDataForm
-                    isOpen={!!editingData}
-                    onClose={() => setEditingData(null)}
-                    onSubmit={handleUpdate}
-                    initialData={{
-                        universityId: editingData.universityId.toString(),
-                        year: editingData.year.toString(),
-                        studentsCount: editingData.studentsCount.toString(),
-                        faculties: editingData.faculties,
-                        associations: editingData.associations,
-                        cults: editingData.cults,
-                    }}
-                    title="Edit Campus Information"
-                    universities={universities}
-                />
-            )}
-
-            {/* Delete Dialog */}
-            <Dialog open={deleteModal.isOpen} onOpenChange={(open) => !open && setDeleteModal(prev => ({ ...prev, isOpen: false }))}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete Record</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete the campus data for <strong>{deleteModal.name}</strong>? This action cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}
-                            disabled={deleting}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={deleting}
-                        >
-                            {deleting ? 'Deleting...' : 'Delete'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </SidebarProvider>
     );
 }

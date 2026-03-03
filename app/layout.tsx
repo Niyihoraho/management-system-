@@ -1,19 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { IdProvider } from "@/app/components/providers/id-provider";
 import { AuthProvider } from "@/app/components/providers/session-provider";
 import { RoleAccessProvider } from "@/app/components/providers/role-access-provider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "GBUR Management System",
@@ -40,7 +29,7 @@ export default function RootLayout({
         <link rel="shortcut icon" href="/favicon.png" />
         <link rel="apple-touch-icon" href="/favicon.png" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <AuthProvider>
           <RoleAccessProvider>
             <IdProvider>

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const updateStatusSchema = z.object({
     id: z.number().int().positive(),
-    status: z.enum(["active", "inactive", "mobilized", "alumning"]),
+    status: z.enum(["active", "migrating", "inactive", "mobilized", "alumning"]),
 });
 
 export async function PUT(request: NextRequest) {

@@ -14,10 +14,11 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, GraduationCap, MapPin, Building2, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, GraduationCap, MapPin, Building2, Users, Download } from "lucide-react";
 import { useState } from "react";
 import { GradeBadge } from "./grade-badge";
 import { Button } from "@/components/ui/button";
+import * as XLSX from "xlsx";
 
 interface UniversityStats {
     id: number;
@@ -58,16 +59,94 @@ export function StatisticsTable({ stats }: { stats: RegionStats[] }) {
     const totalJoined = stats.reduce((sum, r) => sum + r.joinedThisYear, 0);
     const totalSaved = stats.reduce((sum, r) => sum + r.savedStudents, 0);
 
+    const handleExport = () => {
+        const exportData: any[] = [];
+
+        // Add Header Row
+        exportData.push({
+            "Region / University": "GRAND TOTAL",
+            "Active Members": totalActive,
+            "Male": totalMale,
+            "Female": totalFemale,
+            "Cells": totalCells,
+            "DG Groups": totalGroups,
+            "In DG": totalStudents,
+            "New Joined": totalJoined,
+            "Saved": totalSaved
+        });
+
+        stats.forEach(region => {
+            // Add Region Row
+            exportData.push({
+                "Region / University": region.name,
+                "Active Members": region.activeMembers,
+                "Male": region.maleMembers || 0,
+                "Female": region.femaleMembers || 0,
+                "Cells": region.cells,
+                "DG Groups": region.discipleshipGroups,
+                "In DG": region.studentsInDiscipleship,
+                "New Joined": region.joinedThisYear,
+                "Saved": region.savedStudents
+            });
+
+            // Add University Rows
+            region.universityStats.forEach(uni => {
+                exportData.push({
+                    "Region / University": `  - ${uni.name}`,
+                    "Active Members": uni.activeMembers,
+                    "Male": uni.maleMembers || 0,
+                    "Female": uni.femaleMembers || 0,
+                    "Cells": uni.cells,
+                    "DG Groups": uni.discipleshipGroups,
+                    "In DG": uni.studentsInDiscipleship,
+                    "New Joined": uni.joinedThisYear,
+                    "Saved": uni.savedStudents
+                });
+            });
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Ministry Statistics");
+
+        // Set column widths
+        const wscols = [
+            { wch: 40 }, // Name
+            { wch: 15 }, // Active
+            { wch: 10 }, // Male
+            { wch: 10 }, // Female
+            { wch: 10 }, // Cells
+            { wch: 10 }, // Groups
+            { wch: 10 }, // Students
+            { wch: 12 }, // Joined
+            { wch: 10 }  // Saved
+        ];
+        worksheet["!cols"] = wscols;
+
+        XLSX.writeFile(workbook, `Ministry_Statistics_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
     return (
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-            <div className="p-6 border-b bg-muted/30">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Users className="w-5 h-5 text-primary" />
-                    General Ministry Statistics
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Overview of active members, cells, and discipleship groups.
-                </p>
+            <div className="p-6 border-b bg-muted/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        General Ministry Statistics
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Overview of active members, cells, and discipleship groups.
+                    </p>
+                </div>
+                <Button
+                    onClick={handleExport}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 bg-background border-primary/20 hover:bg-primary/5 text-primary"
+                >
+                    <Download className="w-4 h-4" />
+                    Export Excel
+                </Button>
             </div>
             <Table>
                 <TableHeader>

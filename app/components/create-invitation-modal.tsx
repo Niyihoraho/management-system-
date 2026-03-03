@@ -43,6 +43,7 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
     const [type, setType] = useState<'student' | 'graduate'>('student');
     const [expiration, setExpiration] = useState('');
     const [description, setDescription] = useState('');
+    const [isMigration, setIsMigration] = useState(false);
 
     // Region & University State
     const [regions, setRegions] = useState<{ id: number; name: string }[]>([]);
@@ -133,6 +134,7 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
                 description,
                 regionId: selectedRegion ? parseInt(selectedRegion) : undefined,
                 universityIds: selectedUniversityIds.length > 0 ? selectedUniversityIds : undefined,
+                isMigration: isMigration || undefined,
             });
 
             toast.success("Invitation link created successfully");
@@ -145,6 +147,7 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
             setType('student');
             setExpiration('');
             setDescription('');
+            setIsMigration(false);
             setSelectedRegion('');
             setUniversities([]);
             setSelectedUniversityIds([]);
@@ -259,6 +262,26 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Migration Checkbox - Superadmin only, graduate type */}
+                    {canSelectGraduate && type === 'graduate' && (
+                        <div className="flex items-start space-x-3 bg-amber-50 p-3 rounded-lg border border-amber-200 animate-in fade-in slide-in-from-top-1">
+                            <Checkbox
+                                id="isMigration"
+                                checked={isMigration}
+                                onCheckedChange={(checked) => setIsMigration(checked as boolean)}
+                                className="mt-0.5 border-amber-400 data-[state=checked]:bg-amber-600 data-[state=checked]:border-amber-600"
+                            />
+                            <div className="space-y-0.5">
+                                <label htmlFor="isMigration" className="text-sm font-semibold text-amber-900 cursor-pointer">
+                                    This is a migration link
+                                </label>
+                                <p className="text-[10px] text-amber-700">
+                                    Registrants via this link will appear in the Migration section for tracking.
+                                </p>
+                            </div>
                         </div>
                     )}
 

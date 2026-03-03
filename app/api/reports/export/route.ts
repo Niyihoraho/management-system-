@@ -4,15 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getReportRLSConditions, getUserScope } from "@/lib/rls";
 import type { Prisma } from "@/lib/generated/prisma";
 import { format } from "date-fns";
-import { readFile, access } from "fs/promises";
-import path from "path";
-import Mustache from "mustache";
-import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium-min";
 
 type MaturityLevel = "NA_OR_NOT_SURE" | "NOT_EVIDENT" | "BEGINNING" | "GROWING" | "MATURING";
-
-const TAG_COLORS = ["#8b3a3a", "#3d6b5e", "#4a6fa5", "#6b4a8a", "#a06b3c"];
 
 const RATING_META: Record<MaturityLevel, { label: string; ratingClass: string; labelClass: string; score: number }> = {
     NA_OR_NOT_SURE: { label: "N/A", ratingClass: "seg-na", labelClass: "r-na", score: 0 },
@@ -32,7 +25,6 @@ const LEGEND = [
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
 
 type ExportRequestBody = {
     pillarIds?: number[];
@@ -145,67 +137,28 @@ export async function POST(req: Request) {
         orderBy: { id: "asc" },
     });
 
-    const generatedAt = new Date();
-
-    const coverLogos = await loadCoverLogos();
-
     const templateView = buildTemplateView({
         sessionUserName: session.user.name || session.user.email || "Authorized User",
         reports,
         priorities,
-        generatedAt,
-        logos: coverLogos,
+        generatedAt: new Date(),
     });
 
-    try {
-        const template = await loadTemplate();
-        const html = Mustache.render(template, templateView, {}, {
-            escape: (value) => value,
-        });
-        const pdfBuffer = await renderPdf(html);
-        if (!pdfBuffer || pdfBuffer.length === 0) {
-            throw new Error("renderPdf returned an empty buffer");
-        }
-        const pdfSlice = pdfBuffer.subarray(0, 8).toString("utf-8");
-        console.log(`[reports/export] generated pdf bytes: ${pdfBuffer.length}, signature: ${pdfSlice}`);
-
-        const filename = `strategic-report-${format(generatedAt, "yyyyMMdd-HHmmss")}.pdf`;
-        const pdfBytes = new Uint8Array(pdfBuffer.length);
-        pdfBytes.set(pdfBuffer);
-        const pdfArrayBuffer = pdfBytes.buffer;
-
-        return new Response(pdfArrayBuffer, {
-            status: 200,
-            headers: {
-                "Content-Type": "application/pdf",
-                "Content-Disposition": `attachment; filename="${filename}"`,
-                "Cache-Control": "no-store",
-                "Content-Length": pdfBuffer.length.toString(),
-            },
-        });
-    } catch (error) {
-        console.error("[reports/export] Failed to generate PDF", error);
-        return NextResponse.json({ error: "Failed to generate PDF" }, { status: 500 });
-    }
+    return NextResponse.json(templateView);
 }
 
-async function loadTemplate() {
-    const templatePath = path.join(process.cwd(), "templates", "pdf", "pillar-report.html");
-    return readFile(templatePath, "utf-8");
-}
+// --------------- Data transformation (kept from original) ---------------
 
 function buildTemplateView({
     sessionUserName,
     reports,
     priorities,
     generatedAt,
-    logos,
 }: {
     sessionUserName: string;
     reports: ReportWithRelations[];
     priorities: PriorityWithRelations[];
     generatedAt: Date;
-    logos: { primaryLogo: string | null; secondaryLogo: string | null };
 }) {
     const priorityMeta = new Map(priorities.map((priority) => [priority.id, priority]));
 
@@ -271,6 +224,8 @@ function buildTemplateView({
 
     const orderedPriorityIds = priorities.map((priority) => priority.id).filter((id) => grouped.has(id));
 
+    const TAG_COLORS = ["#8b3a3a", "#3d6b5e", "#4a6fa5", "#6b4a8a", "#a06b3c"];
+
     const pillars = orderedPriorityIds.map((priorityId, index) => {
         const meta = priorityMeta.get(priorityId);
         const group = grouped.get(priorityId)!;
@@ -289,7 +244,6 @@ function buildTemplateView({
             }
         }
 
-        // Include ad-hoc categories that might not exist in config
         for (const [catKey, section] of group.sections.entries()) {
             if (section.activities.length === 0) continue;
             if (typeof catKey === "number" && meta?.activity_category?.some((cat) => cat.id === catKey)) {
@@ -339,10 +293,9 @@ function buildTemplateView({
             vision: meta?.description || group.description || "This strategic priority does not have a description yet.",
             sections,
             evaluation: finalEvaluation,
-            animationDelay: ((index + 1) * 0.1).toFixed(1),
             isLast: index === orderedPriorityIds.length - 1,
         };
-    }).filter(Boolean) as Array<{ id: number; number: string; tagColor: string; tagLabel: string; title: string; subtitle: string; vision: string; sections: Section[]; evaluation: any; animationDelay: string; isLast: boolean }>;
+    }).filter(Boolean);
 
     return {
         organizationBadge: "GBUR Student Ministry",
@@ -350,27 +303,11 @@ function buildTemplateView({
         reportTheme: "Thriving Together",
         reportSubtitle: "Ministry Activities and Priority Evaluations",
         coverStatement: "Empowering students, nurturing leadership, and building resilient communities.",
-        logos: (logos.primaryLogo || logos.secondaryLogo) ? {
-            primaryLogo: logos.primaryLogo,
-            invertPrimary: false,
-            secondaryLogo: logos.secondaryLogo,
-            invertSecondary: false,
-        } : null,
+        generatedAt: format(generatedAt, "MMM d, yyyy"),
         pillars,
+        totalActivities,
         footerLineOne: `GBUR Student Ministry`,
         footerLineTwo: `${pillars.length} Pillar${pillars.length === 1 ? "" : "s"} · ${totalActivities} Activit${totalActivities === 1 ? "y" : "ies"}`,
-    };
-}
-
-function buildPlaceholderActivity(message: string) {
-    return {
-        name: message,
-        beneficiaries: "—",
-        participants: "—",
-        date: "—",
-        facilitators: "—",
-        followUp: "—",
-        impactText: message,
     };
 }
 
@@ -432,95 +369,4 @@ function summarizeQuestion(ratings: MaturityLevel[], statement: string) {
         ratingLabel: meta.label,
         hasData: true,
     };
-}
-
-async function renderPdf(html: string) {
-    const executablePath = await resolveExecutablePath();
-    if (!executablePath) {
-        throw new Error("Unable to locate a Chromium executable for PDF generation.");
-    }
-
-    const browser = await puppeteer.launch({
-        args: chromium.args,
-        executablePath,
-        headless: true,
-    });
-
-    try {
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "networkidle2" });
-        await page.emulateMediaType("screen");
-        const pdf = await page.pdf({
-            format: "A4",
-            printBackground: true,
-            margin: { top: "0.5in", right: "0.5in", bottom: "0.7in", left: "0.5in" },
-        });
-        return Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
-    } finally {
-        await browser.close();
-    }
-}
-
-async function loadCoverLogos() {
-    const [primaryLogo, secondaryLogo] = await Promise.all([
-        loadAssetDataUri("logo2.jpg"),
-        loadAssetDataUri("ifeslogo.png"),
-    ]);
-    return {
-        primaryLogo,
-        secondaryLogo,
-    };
-}
-
-async function loadAssetDataUri(fileName: string) {
-    try {
-        const filePath = path.join(process.cwd(), "public", fileName);
-        const buffer = await readFile(filePath);
-        const ext = path.extname(fileName).replace(".", "").toLowerCase();
-        const mime = ext === "svg" ? "image/svg+xml" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-        return `data:${mime};base64,${buffer.toString("base64")}`;
-    } catch (error) {
-        console.warn(`[reports/export] Unable to load asset ${fileName}`, error);
-        return null;
-    }
-}
-
-async function resolveExecutablePath() {
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-        return process.env.PUPPETEER_EXECUTABLE_PATH;
-    }
-
-    try {
-        const exePath = await chromium.executablePath();
-        if (exePath) return exePath;
-    } catch (error) {
-        console.warn("[reports/export] chromium-min executable unavailable, trying local browser");
-    }
-
-    const fallbacks = [
-        // Windows Chrome / Edge
-        "C:/Program Files/Google/Chrome/Application/chrome.exe",
-        "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-        "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
-        "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-        // macOS
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-        // Linux
-        "/usr/bin/google-chrome-stable",
-        "/usr/bin/google-chrome",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/chromium",
-    ];
-
-    for (const candidate of fallbacks) {
-        try {
-            await access(candidate);
-            return candidate;
-        } catch (error) {
-            continue;
-        }
-    }
-
-    return null;
 }

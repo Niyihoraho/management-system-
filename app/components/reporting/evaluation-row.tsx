@@ -15,12 +15,13 @@ interface EvaluationQuestionProps {
 }
 
 const LEVEL_OPTIONS: { value: MaturityLevel; label: string; color: string }[] = [
-    { value: "NA_OR_NOT_SURE", label: "N/A / Not Sure", color: "bg-gray-100 border-gray-200 text-gray-900" },
-    { value: "NOT_EVIDENT", label: "Not Evident", color: "bg-red-100 border-red-200 text-red-900" },
-    { value: "BEGINNING", label: "Beginning", color: "bg-orange-100 border-orange-200 text-orange-900" },
-    { value: "GROWING", label: "Growing", color: "bg-yellow-100 border-yellow-200 text-yellow-900" },
-    { value: "MATURING", label: "Maturing", color: "bg-green-100 border-green-200 text-green-900" },
+    { value: "NA_OR_NOT_SURE", label: "N/A / Not Sure", color: "bg-slate-800 border-slate-700 text-slate-300" },
+    { value: "NOT_EVIDENT", label: "Not Evident", color: "bg-red-950/30 border-red-900/50 text-red-400" },
+    { value: "BEGINNING", label: "Beginning", color: "bg-orange-950/30 border-orange-900/50 text-orange-400" },
+    { value: "GROWING", label: "Growing", color: "bg-yellow-950/30 border-yellow-900/50 text-yellow-400" },
+    { value: "MATURING", label: "Maturing", color: "bg-green-950/30 border-green-900/50 text-green-400" },
 ];
+
 
 export function EvaluationRow({ questionId, statement, value, onChange }: EvaluationQuestionProps) {
     return (

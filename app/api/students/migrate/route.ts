@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/lib/rls";
+import { cacheDel } from "@/lib/cache";
 
 export async function POST(request: NextRequest) {
     try {
@@ -9,24 +10,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        if (["university", "smallgroup", "graduatesmallgroup"].includes(userScope.scope)) {
+        if (["smallgroup", "graduatesmallgroup"].includes(userScope.scope)) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const body = await request.json();
-        const {
-            studentId,
-            graduationYear,
-            profession,
-            phone,
-            email,
-            residenceProvince,
-            residenceDistrict,
-            residenceSector,
-            provinceId,
-            districtId,
-            sectorId,
-        } = body;
+        const { studentId } = body;
 
         if (!studentId) {
             return NextResponse.json({ error: "Student ID is required" }, { status: 400 });
@@ -46,53 +35,56 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Student not found" }, { status: 404 });
         }
 
-        // 2. Queue request and mark student inactive until approval
-        const registrationRequest = await prisma.$transaction(async (tx) => {
-            const created = await tx.registrationrequest.create({
-                data: {
-                    type: 'graduate',
-                    status: 'PENDING',
-                    fullName: student.fullName,
-                    phone: phone || student.phone,
-                    email: email || student.email,
-                    payload: {
-                        source: 'student_migration',
-                        sourceStudentId: student.id,
-                        fullName: student.fullName,
-                        sex: student.sex,
-                        phone: phone || student.phone,
-                        email: email || student.email,
-                        university: student.university.name,
-                        universityId: student.universityId,
-                        regionId: student.regionId,
-                        course: student.course,
-                        graduationYear: graduationYear ? parseInt(graduationYear) : new Date().getFullYear(),
-                        profession: profession || null,
-                        residenceProvince: residenceProvince || student.placeOfBirthProvince,
-                        residenceDistrict: residenceDistrict || student.placeOfBirthDistrict,
-                        residenceSector: residenceSector || student.placeOfBirthSector,
-                        provinceId: provinceId || null,
-                        districtId: districtId || null,
-                        sectorId: sectorId || null,
-                        isDiaspora: false,
-                        financialSupport: false,
-                    },
-                    updatedAt: new Date(),
-                },
-            });
+        // Scope checks
+        if (userScope.scope === 'region' && userScope.regionId && student.regionId !== userScope.regionId) {
+            return NextResponse.json({ error: "Forbidden: student outside your region" }, { status: 403 });
+        }
 
-            await tx.student.update({
-                where: { id: student.id },
-                data: {
-                    status: 'inactive',
-                    updatedAt: new Date(),
-                },
-            });
+        if (userScope.scope === 'university' && userScope.universityId && student.universityId !== userScope.universityId) {
+            return NextResponse.json({ error: "Forbidden: student outside your university" }, { status: 403 });
+        }
 
-            return created;
+        if (student.status !== 'active') {
+            return NextResponse.json(
+                { error: "This student already has a pending migration or is not in active status." },
+                { status: 409 }
+            );
+        }
+
+        const pendingRequests = await prisma.registrationrequest.findMany({
+            where: { status: 'PENDING' },
+            select: { payload: true },
         });
 
-        return NextResponse.json({ success: true, requestId: registrationRequest.id });
+        const hasPendingFlow = pendingRequests.some((requestRow) => {
+            const payload = requestRow.payload as Record<string, unknown> | null;
+            const sourceStudentId = typeof payload?.sourceStudentId === 'number' ? payload.sourceStudentId : null;
+            return sourceStudentId === student.id;
+        });
+
+        if (hasPendingFlow) {
+            return NextResponse.json(
+                { error: "This student already has a pending approval request." },
+                { status: 409 }
+            );
+        }
+
+        // 2. Mark as migrating only. Student completes public migration form later.
+        await prisma.student.update({
+            where: { id: student.id },
+            data: {
+                status: 'migrating' as any,
+                updatedAt: new Date(),
+            },
+        });
+
+        await Promise.all([
+            cacheDel(`students:*:${student.id}`),
+            cacheDel('students:list:*'),
+            cacheDel('stats:*'),
+        ]);
+
+        return NextResponse.json({ success: true, studentId: student.id, status: 'migrating' });
 
     } catch (error: any) {
         console.error("Migration error:", error);

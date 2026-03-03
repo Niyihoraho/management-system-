@@ -12,7 +12,24 @@ type RegistrationSubmittedEmailPayload = {
     to: string;
     fullName: string;
     registrationType: 'student' | 'graduate';
+    selectedPillars?: string[];
+    graduateGroupName?: string;
+    noCellAvailable?: boolean;
+    isMigration?: boolean;
+    migrationFromUniversity?: string;
 };
+
+const PILLAR_LABELS: Record<string, string> = {
+    mobilization_integration: 'Mobilization & Integration',
+    capacity_building: 'Capacity Building',
+    event_planning_management: 'Event Planning & Management',
+    graduate_cell_management: 'Graduate Cell Management',
+    social_cohesion_promotion: 'Social Cohesion Promotion',
+    prayer_promotion: 'Prayer Promotion',
+    database_management: 'Database Management',
+};
+
+const toPillarLabel = (value: string) => PILLAR_LABELS[value] || value;
 
 const escapeHtml = (value: string) =>
     value
@@ -126,6 +143,21 @@ export async function sendEmail(payload: SendEmailPayload): Promise<void> {
 export async function sendRegistrationSubmittedEmail(payload: RegistrationSubmittedEmailPayload): Promise<void> {
     const safeName = payload.fullName?.trim() || 'Member';
     const safeHtmlName = escapeHtml(safeName);
+    const selectedPillars = Array.isArray(payload.selectedPillars)
+        ? payload.selectedPillars.map(toPillarLabel).filter(Boolean)
+        : [];
+    const selectedPillarText = selectedPillars.length > 0 ? selectedPillars.join(', ') : 'Not specified';
+    const selectedPillarHtml = escapeHtml(selectedPillarText);
+
+    const graduateGroupText = payload.graduateGroupName && payload.graduateGroupName.trim().length > 0
+        ? payload.graduateGroupName.trim()
+        : 'Not selected';
+    const graduateGroupHtml = escapeHtml(graduateGroupText);
+
+    const followUpText = payload.noCellAvailable
+        ? 'You indicated that you did not find a graduate small group near you. Please keep in touch with us so we can help you connect.'
+        : 'Please keep in touch with us so we can help you connect.';
+    const followUpHtml = escapeHtml(followUpText);
 
     if (payload.registrationType === 'student') {
         const title = 'Welcome to the GBUR Family';
@@ -147,19 +179,29 @@ export async function sendRegistrationSubmittedEmail(payload: RegistrationSubmit
     }
 
     const title = 'Thank You for Staying Connected';
+    const migrationNote = payload.isMigration
+        ? `You have successfully completed your migration from ${payload.migrationFromUniversity || 'your university'} to now graduate status in GBUR.`
+        : null;
+    const safeMigrationNoteHtml = migrationNote ? escapeHtml(migrationNote) : null;
     const content = `
         <p style="margin-top: 0; margin-bottom: 16px; font-size: 16px;">Hi <strong>${safeHtmlName}</strong>,</p>
         <p style="margin-top: 0; margin-bottom: 16px; font-size: 16px;">Thank you for your continued connection with GBUR.</p>
+        ${safeMigrationNoteHtml ? `<p style="margin-top: 0; margin-bottom: 16px; font-size: 16px; line-height: 1.7;">${safeMigrationNoteHtml}</p>` : ''}
         <p style="margin-top: 0; margin-bottom: 16px; font-size: 16px; line-height: 1.7;">Your commitment and support as a graduate are a real blessing to the GBUR family. Let us continue growing together in fellowship with our Lord Jesus Christ to impact our communities.</p>
+        <p style="margin-top: 0; margin-bottom: 10px; font-size: 16px;"><strong>Selected Ministry Pillar:</strong> ${selectedPillarHtml}</p>
+        <p style="margin-top: 0; margin-bottom: 10px; font-size: 16px;"><strong>Graduate Small Group:</strong> ${graduateGroupHtml}</p>
+        <p style="margin-top: 0; margin-bottom: 16px; font-size: 15px; color: #475569;">${followUpHtml}</p>
         <p style="margin-top: 0; margin-bottom: 16px; font-size: 16px;">We appreciate you and look forward to achieving great things together.</p>
         <p style="margin-top: 32px; margin-bottom: 4px; font-size: 16px;">With gratitude,</p>
         <p style="margin-top: 0; margin-bottom: 0; font-size: 16px; font-weight: 600; color: #2563eb;">GBUR Team</p>
     `;
 
+    const migrationText = migrationNote ? `${migrationNote}\n\n` : '';
+
     await sendEmail({
         to: payload.to,
         subject: 'Thank You for Staying Connected with GBUR',
-        text: `Hi ${safeName},\n\nThank you for your continued connection with GBUR.\n\nYour commitment and support as a graduate are a real blessing to the GBUR family. Let us continue growing together in fellowship with our Lord Jesus Christ to impact our communities.\n\nWe appreciate you and look forward to achieving great things together.\n\nWith gratitude,\nGBUR Team\n${signatureText}`,
+        text: `Hi ${safeName},\n\nThank you for your continued connection with GBUR.\n\n${migrationText}Your commitment and support as a graduate are a real blessing to the GBUR family. Let us continue growing together in fellowship with our Lord Jesus Christ to impact our communities.\n\nSelected Serving Pillar: ${selectedPillarText}\nGraduate Small Group: ${graduateGroupText}\n${followUpText}\n\nWe appreciate you and look forward to achieving great things together.\n\nWith gratitude,\nGBUR Team\n${signatureText}`,
         html: getEmailTemplate(title, content),
     });
 }

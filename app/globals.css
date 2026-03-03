@@ -1,5 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
+
+/* Apply Geist font globally */
+:root {
+  font-family: 'Geist', system-ui, sans-serif;
+}
 
 /* Suppress hydration warnings for Radix UI components */
 [data-radix-collection-item] {
@@ -66,15 +72,20 @@
 :root {
   --radius: 0.625rem;
   /* Dark blue-gray theme inspired by the login form image */
-  --background: hsl(220 25% 12%); /* Darker blue-gray for main background */
-  --foreground: hsl(0 0% 95%); /* Light text for contrast */
-  --card: hsl(220 20% 18%); /* Slightly lighter blue-gray for cards/forms */
+  --background: hsl(220 25% 12%);
+  /* Darker blue-gray for main background */
+  --foreground: hsl(0 0% 95%);
+  /* Light text for contrast */
+  --card: hsl(220 20% 18%);
+  /* Slightly lighter blue-gray for cards/forms */
   --card-foreground: hsl(0 0% 95%);
   --popover: hsl(220 20% 18%);
   --popover-foreground: hsl(0 0% 95%);
-  --primary: hsl(220 15% 25%); /* Medium blue-gray for primary elements */
+  --primary: hsl(220 15% 25%);
+  /* Medium blue-gray for primary elements */
   --primary-foreground: hsl(0 0% 95%);
-  --secondary: hsl(220 15% 20%); /* Secondary blue-gray */
+  --secondary: hsl(220 15% 20%);
+  /* Secondary blue-gray */
   --secondary-foreground: hsl(0 0% 90%);
   --muted: hsl(220 15% 20%);
   --muted-foreground: hsl(0 0% 70%);
@@ -139,7 +150,33 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Custom thin scrollbar utility */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: 10px;
+    opacity: 0.5;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
   }
 }
