@@ -32,7 +32,12 @@ export default async function JoinPage({ params }: JoinPageProps) {
                 InvitationUniversities: {
                     include: {
                         university: {
-                            select: { id: true, name: true }
+                            select: {
+                                id: true,
+                                name: true,
+                                regionId: true,
+                                region: { select: { name: true } },
+                            }
                         }
                     }
                 }
@@ -94,19 +99,29 @@ export default async function JoinPage({ params }: JoinPageProps) {
         }
 
         // Fetch universities if student
-        let universities: { id: number; name: string }[] = [];
-        if (invitation.type === 'student') {
+        let universities: { id: number; name: string; regionId?: number; region?: { name: string } | null }[] = [];
+        if (invitation.type === 'student' || invitation.isMigration) {
             if (invitation.universities && invitation.universities.length > 0) {
                 universities = invitation.universities;
             } else if (invitation.regionId) {
                 universities = await prisma.university.findMany({
                     where: { regionId: invitation.regionId },
-                    select: { id: true, name: true },
+                    select: {
+                        id: true,
+                        name: true,
+                        regionId: true,
+                        region: { select: { name: true } },
+                    },
                     orderBy: { name: 'asc' },
                 });
             } else {
                 universities = await prisma.university.findMany({
-                    select: { id: true, name: true },
+                    select: {
+                        id: true,
+                        name: true,
+                        regionId: true,
+                        region: { select: { name: true } },
+                    },
                     orderBy: { name: 'asc' },
                 });
             }

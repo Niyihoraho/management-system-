@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, Fragment } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -35,14 +35,19 @@ import { EvaluationModal } from "@/components/reporting/evaluation-modal";
 import { ViewActivityModal } from "@/app/components/reporting/view-activity-modal";
 import { useToast } from "@/components/ui/use-toast";
 import { useRoleAccess } from "@/app/components/providers/role-access-provider";
+import ReportPdfTemplate, { type ReportData } from "@/app/components/reporting/report-pdf-template";
+import { generatePdf } from "@/lib/generate-pdf";
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuCheckboxItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import * as XLSX from "xlsx";
+import JSZip from "jszip";
 
 type ReportSubmission = {
     id: number;
@@ -234,6 +239,9 @@ export default function AdminReportsPage() {
     const [selectedExportItems, setSelectedExportItems] = useState<string[]>([]);
     const [selectAllItems, setSelectAllItems] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [exportFormat, setExportFormat] = useState<'pdf' | 'excel' | 'images' | null>(null);
+    const [pdfData, setPdfData] = useState<ReportData | null>(null);
+    const pdfContainerRef = useRef<HTMLDivElement>(null);
 
     // Modal State
     const [selectedReport, setSelectedReport] = useState<ReportSubmission | null>(null);
@@ -408,7 +416,150 @@ export default function AdminReportsPage() {
         });
     };
 
-    const handleExportSelected = async () => {
+    // Client-side PDF generation: render template → capture with html2canvas → jsPDF
+    const handlePdfRender = useCallback(async () => {
+        if (!pdfData || !pdfContainerRef.current) return;
+
+        // Capture ref before any async work — it can become null during the wait
+        const container = pdfContainerRef.current;
+
+        // Wait for images and fonts to load
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        // Safety check after timeout
+        if (!container || !container.isConnected) {
+            setExporting(false);
+            return;
+        }
+
+        try {
+            const filenameBase = pdfData.pillars.length === 1 ? "1-target" : `${pdfData.pillars.length}-targets`;
+            const filename = `gbu-strategic-report-${filenameBase}-${new Date().toISOString().split("T")[0]}.pdf`;
+
+            await generatePdf(container, filename);
+
+            toast({
+                title: "PDF export ready",
+                description: `${pdfData.pillars.length} pillar${pdfData.pillars.length === 1 ? "" : "s"} exported.`,
+            });
+        } catch (error) {
+            console.error(error);
+            toast({
+                title: "Failed to generate PDF",
+                description: error instanceof Error ? error.message : "Unexpected error occurred",
+                variant: "destructive",
+            });
+        } finally {
+            setPdfData(null);
+            setExporting(false);
+            setExportFormat(null);
+        }
+    }, [pdfData, toast]);
+
+    // Trigger PDF capture once the template is rendered
+    useEffect(() => {
+        if (pdfData && pdfContainerRef.current) {
+            handlePdfRender();
+        }
+    }, [pdfData, handlePdfRender]);
+
+    const generateExcelReport = (data: ReportData) => {
+        const exportData: any[] = [];
+        data.pillars.forEach(pillar => {
+            pillar.sections.forEach(section => {
+                section.activities.forEach(activity => {
+                    exportData.push({
+                        "Region": activity.submitterRegion,
+                        "Strategic Priority": pillar.title,
+                        "Category": section.label,
+                        "Activity Name": activity.name,
+                        "Date": activity.date,
+                        "Submitter": activity.submitterName,
+                        "Submitter Email": activity.submitterEmail,
+                        "Participants": activity.participants,
+                        "Beneficiaries": activity.beneficiaries,
+                        "Facilitators": activity.facilitators,
+                        "Impact": activity.impactText
+                    });
+                });
+            });
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Report Activities");
+
+        // Auto-size columns
+        const wscols = [
+            { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 25 }, { wch: 15 },
+            { wch: 20 }, { wch: 25 }, { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 40 }
+        ];
+        worksheet["!cols"] = wscols;
+
+        XLSX.writeFile(workbook, `GBU_Strategic_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const generateImageZip = async (data: ReportData) => {
+        const zip = new JSZip();
+        let imageCount = 0;
+        const fetchPromises: Promise<any>[] = [];
+
+        data.pillars.forEach(pillar => {
+            pillar.sections.forEach(section => {
+                section.activities.forEach(activity => {
+                    if (activity.photos && activity.photos.items.length > 0) {
+                        activity.photos.items.forEach((photo, pIdx) => {
+                            const promise = (async () => {
+                                try {
+                                    const response = await fetch(photo.src);
+                                    if (!response.ok) throw new Error("Fetch failed");
+                                    const blob = await response.blob();
+
+                                    // Sanitize for filenames
+                                    const region = activity.submitterRegion.replace(/[/\\?%*:|"<>]/g, '-');
+                                    const date = activity.date.replace(/[/\\?%*:|"<>]/g, '-');
+                                    const pillarTitle = pillar.title.replace(/[/\\?%*:|"<>]/g, '-').substring(0, 30);
+                                    const actName = activity.name.replace(/[/\\?%*:|"<>]/g, '-').substring(0, 30);
+
+                                    const extension = photo.src.split('.').pop()?.split(/[?#]/)[0] || 'jpg';
+                                    const filename = `${region}_${date}_${pillarTitle}_${actName}_${pIdx + 1}.${extension}`;
+
+                                    zip.file(filename, blob);
+                                    imageCount++;
+                                } catch (err) {
+                                    console.error(`Failed to download image: ${photo.src}`, err);
+                                }
+                            })();
+                            fetchPromises.push(promise);
+                        });
+                    }
+                });
+            });
+        });
+
+        if (fetchPromises.length === 0) {
+            toast({ title: "No images found", description: "Selected priorities don't have any images." });
+            setExporting(false);
+            setExportFormat(null);
+            return;
+        }
+
+        await Promise.all(fetchPromises);
+
+        const content = await zip.generateAsync({ type: "blob" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(content);
+        link.download = `GBU_Strategic_Images_${new Date().toISOString().split('T')[0]}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast({ title: "Images downloaded", description: `Successfully bundled ${imageCount} images.` });
+        setExporting(false);
+        setExportFormat(null);
+    };
+
+    const handleExportSelected = async (format: 'pdf' | 'excel' | 'images') => {
         if (exportableItems.length === 0 || exporting) return;
 
         const selectedIds = selectAllItems
@@ -430,10 +581,10 @@ export default function AdminReportsPage() {
             }
         });
 
-        // Fallback or purely logic: if there are somehow no report IDs but we think we selected things
         if (selectedReportIds.size === 0) return;
 
         setExporting(true);
+        setExportFormat(format);
         try {
             const payload = { reportIds: Array.from(selectedReportIds) };
             const res = await fetch("/api/reports/export", {
@@ -445,44 +596,29 @@ export default function AdminReportsPage() {
 
             if (!res.ok) {
                 const errorBody = await res.json().catch(() => ({}));
-                throw new Error(errorBody.error || "Failed to export PDF");
+                throw new Error(errorBody.error || "Failed to fetch report data");
             }
 
-            const blob = await res.blob();
-            if (!blob || blob.size === 0) {
-                throw new Error("Received an empty PDF response");
+            const data: ReportData = await res.json();
+
+            if (format === 'pdf') {
+                setPdfData(data);
+            } else if (format === 'excel') {
+                generateExcelReport(data);
+                setExporting(false);
+                setExportFormat(null);
+            } else if (format === 'images') {
+                await generateImageZip(data);
             }
-            const url = URL.createObjectURL(blob);
-            const filenameBase = exportingAll ? "all" : selectedIds.length.toString() + "-targets";
-            const filename = `gbu-strategic-report-${filenameBase}-${new Date().toISOString().split("T")[0]}.pdf`;
-
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.setTimeout(() => {
-                URL.revokeObjectURL(url);
-            }, 5000);
-
-            const selectionLabel = exportingAll
-                ? "All submitted priorities"
-                : `${selectedIds.length} priority combinations`;
-
-            toast({
-                title: "PDF export ready",
-                description: selectionLabel || "Selected pillars exported.",
-            });
         } catch (error) {
             console.error(error);
+            setExporting(false);
+            setExportFormat(null);
             toast({
-                title: "Failed to export PDF",
+                title: `Failed to export ${format.toUpperCase()}`,
                 description: error instanceof Error ? error.message : "Unexpected error occurred",
                 variant: "destructive",
             });
-        } finally {
-            setExporting(false);
         }
     };
 
@@ -524,11 +660,14 @@ export default function AdminReportsPage() {
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="default" size="sm">
                                             <Download className="mr-2 h-4 w-4" />
-                                            Export PDF
+                                            Export Options
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-[400px]">
-                                        <DropdownMenuLabel>Select Priorities to Export</DropdownMenuLabel>
+                                        <DropdownMenuLabel className="flex justify-between items-center">
+                                            <span>Select Priorities to Export</span>
+                                            <Badge variant="outline" className="text-[10px]">{selectedExportItems.length} selected</Badge>
+                                        </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuCheckboxItem
                                             checked={selectAllItems}
@@ -568,16 +707,38 @@ export default function AdminReportsPage() {
                                             )}
                                         </div>
                                         <DropdownMenuSeparator />
-                                        <div className="px-3 pb-2 pt-2">
+                                        <div className="px-3 pb-2 pt-2 grid grid-cols-1 gap-2">
                                             <Button
                                                 size="sm"
-                                                className="w-full"
-                                                onClick={handleExportSelected}
+                                                className="w-full bg-red-600 hover:bg-red-700 h-9"
+                                                onClick={() => handleExportSelected('pdf')}
                                                 disabled={exportableItems.length === 0 || exporting}
                                             >
-                                                {exporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                {exporting ? "Preparing..." : "Export Selection"}
+                                                {exporting && exportFormat === 'pdf' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                {exporting && exportFormat === 'pdf' ? "Preparing PDF..." : "Export as PDF"}
                                             </Button>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    className="w-full h-9"
+                                                    onClick={() => handleExportSelected('excel')}
+                                                    disabled={exportableItems.length === 0 || exporting}
+                                                >
+                                                    {exporting && exportFormat === 'excel' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                                                    Excel
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    className="w-full h-9"
+                                                    onClick={() => handleExportSelected('images')}
+                                                    disabled={exportableItems.length === 0 || exporting}
+                                                >
+                                                    {exporting && exportFormat === 'images' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                                                    Images
+                                                </Button>
+                                            </div>
                                         </div>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -671,7 +832,21 @@ export default function AdminReportsPage() {
                 </div>
 
             </SidebarInset>
+
+            {/* Hidden off-screen container for PDF template rendering */}
+            {pdfData && (
+                <div
+                    style={{
+                        position: "absolute",
+                        left: "-10000px",
+                        top: 0,
+                        width: "794px",
+                        pointerEvents: "none",
+                    }}
+                >
+                    <ReportPdfTemplate ref={pdfContainerRef} data={pdfData} />
+                </div>
+            )}
         </SidebarProvider>
     );
 }
-

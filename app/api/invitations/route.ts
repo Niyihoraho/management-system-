@@ -14,6 +14,7 @@ const createInvitationSchema = z.object({
     description: z.string().optional(),
     regionId: z.number().optional(),
     universityIds: z.array(z.number()).optional(),
+    isMigration: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
 
         if (validatedData.type === 'graduate' && userScope.scope !== 'superadmin') {
             return new NextResponse('Forbidden: Only superadmin can create graduate invitation links', { status: 403 });
+        }
+
+        if (validatedData.isMigration && validatedData.type !== 'graduate') {
+            return new NextResponse('Migration links must target graduate registration', { status: 400 });
         }
 
         // Check if slug already exists
@@ -91,6 +96,7 @@ export async function POST(req: Request) {
                 type: validatedData.type,
                 expiration: new Date(validatedData.expiration),
                 description: validatedData.description,
+                isMigration: validatedData.isMigration ?? false,
                 createdBy: session.user.id,
                 regionId: scopedRegionId,
                 updatedAt: new Date(),
@@ -216,6 +222,70 @@ export async function DELETE(req: Request) {
         return new NextResponse(null, { status: 200 });
     } catch (error) {
         console.error('Error deleting invitation link:', error);
+        return new NextResponse('Internal Server Error', { status: 500 });
+    }
+}
+
+// Schema for updating expiration
+const updateExpirationSchema = z.object({
+    id: z.string().uuid(),
+    expiration: z.string().datetime(),
+});
+
+export async function PATCH(req: Request) {
+    try {
+        const session = await auth();
+
+        if (!session || !session.user) {
+            return new NextResponse('Unauthorized', { status: 401 });
+        }
+
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return new NextResponse('Forbidden', { status: 403 });
+        }
+
+        const canUpdate = ['superadmin', 'region', 'university'].includes(userScope.scope);
+        if (!canUpdate) {
+            return new NextResponse('Forbidden', { status: 403 });
+        }
+
+        const body = await req.json();
+        const validatedData = updateExpirationSchema.parse(body);
+
+        // Verify invitation exists
+        const invitation = await prisma.invitationlink.findUnique({
+            where: { id: validatedData.id },
+        });
+
+        if (!invitation) {
+            return new NextResponse('Invitation not found', { status: 404 });
+        }
+
+        // Scope check: region users can only extend their region's links
+        if (userScope.scope === 'region' && invitation.regionId !== userScope.regionId) {
+            return new NextResponse('Forbidden', { status: 403 });
+        }
+
+        // Scope check: university users can only extend their own created links
+        if (userScope.scope === 'university' && invitation.createdBy !== session.user.id) {
+            return new NextResponse('Forbidden', { status: 403 });
+        }
+
+        const updated = await prisma.invitationlink.update({
+            where: { id: validatedData.id },
+            data: {
+                expiration: new Date(validatedData.expiration),
+                updatedAt: new Date(),
+            },
+        });
+
+        return NextResponse.json(updated);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return new NextResponse('Invalid request data', { status: 400 });
+        }
+        console.error('Error updating invitation expiration:', error);
         return new NextResponse('Internal Server Error', { status: 500 });
     }
 }

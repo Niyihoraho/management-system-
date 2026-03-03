@@ -5,10 +5,11 @@ import { JoinPageLayout } from '@/components/public/join-page-layout';
 import { SuccessView } from '@/components/public/success-view';
 import { StudentRegistrationForm } from '@/components/public/student-registration-form';
 import { GraduateRegistrationForm } from '@/components/public/graduate-registration-form';
+import { MigrateRegistrationForm } from '@/components/public/migrate-registration-form';
 
 interface JoinContentProps {
     invitation: any; // Type strictly if possible, or infer from usage
-    universities: { id: number; name: string }[];
+    universities: { id: number; name: string; regionId?: number; region?: { name?: string | null } | null }[];
     creator: {
         name: string | null;
         email: string | null;
@@ -30,6 +31,12 @@ export function JoinContent({ invitation, universities, creator }: JoinContentPr
             ) : (
                 invitation.type === 'student' ? (
                     <StudentRegistrationForm
+                        invitationId={invitation.id}
+                        universities={universities}
+                        onSuccess={() => setSuccess(true)}
+                    />
+                ) : invitation.isMigration ? (
+                    <MigrateRegistrationForm
                         invitationId={invitation.id}
                         universities={universities}
                         onSuccess={() => setSuccess(true)}

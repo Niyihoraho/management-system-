@@ -917,20 +917,20 @@ export function GraduateRegistrationForm({ invitationId, onSuccess }: GraduateRe
                 )}
 
                 {/* Navigation Buttons */}
-                <div className="flex justify-between pt-6 gap-4 border-t border-slate-100 mt-8">
+                <div className="flex flex-col-reverse sm:flex-row justify-between pt-6 gap-4 border-t border-slate-100 mt-8">
                     {step > 1 && (
-                        <Button type="button" onClick={prevStep} variant="outline" className="px-8 border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-xl py-6 font-medium transition-all hover:shadow-sm">
+                        <Button type="button" onClick={prevStep} variant="outline" className="w-full sm:w-auto px-8 border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-xl py-6 font-medium transition-all hover:shadow-sm">
                             Back
                         </Button>
                     )}
                     {step < 6 && (
-                        <Button type="button" onClick={nextStep} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-6 shadow-lg shadow-blue-600/20 font-bold tracking-wide text-base transition-all hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] group">
+                        <Button type="button" onClick={nextStep} className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-6 shadow-lg shadow-blue-600/20 font-bold tracking-wide text-base transition-all hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] group">
                             Next Step
                             <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </Button>
                     )}
                     {step === 6 && (
-                        <Button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold tracking-wide py-6 rounded-xl shadow-xl shadow-blue-600/20 hover:shadow-2xl hover:shadow-blue-600/30 transition-all transform active:scale-[0.98] text-lg group" disabled={submitting}>
+                        <Button type="submit" className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold tracking-wide py-6 rounded-xl shadow-xl shadow-blue-600/20 hover:shadow-2xl hover:shadow-blue-600/30 transition-all transform active:scale-[0.98] text-lg group" disabled={submitting}>
                             {submitting ? (
                                 <>
                                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />

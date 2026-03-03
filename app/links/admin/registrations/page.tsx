@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { RefreshCw, Check, X, User, GraduationCap, Phone, Mail, Clock } from 'lucide-react';
+import { RefreshCw, Check, X, User, GraduationCap, Phone, Mail, Clock, Filter } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import {
     Breadcrumb,
@@ -20,6 +20,13 @@ import {
     SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
     Dialog,
@@ -68,10 +75,27 @@ export default function RegistrationsPage() {
     const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // University filter state
+    const [universities, setUniversities] = useState<{ id: number; name: string }[]>([]);
+    const [selectedUniversityId, setSelectedUniversityId] = useState<string>('');
+    const [selectedType, setSelectedType] = useState<string>('');
+    const isSuperadmin = userRole === 'superadmin';
+
+    // Fetch universities for filter (RLS-scoped via /api/universities)
+    useEffect(() => {
+        if (!isSuperadmin) return;
+        axios.get('/api/universities')
+            .then(res => setUniversities(Array.isArray(res.data) ? res.data : []))
+            .catch(err => console.error('Failed to fetch universities for filter', err));
+    }, [isSuperadmin]);
+
     const fetchRequests = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await axios.get('/api/registrations', {
+            const params = new URLSearchParams();
+            if (selectedUniversityId) params.set('universityId', selectedUniversityId);
+            if (selectedType) params.set('type', selectedType);
+            const res = await axios.get(`/api/registrations${params.toString() ? '?' + params.toString() : ''}`, {
                 headers: { 'x-read-after-write': '1' }
             });
             setRequests(res.data.requests || []);
@@ -81,7 +105,7 @@ export default function RegistrationsPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [selectedUniversityId, selectedType]);
 
     useEffect(() => {
         if (userRole === null) return;
@@ -93,6 +117,14 @@ export default function RegistrationsPage() {
 
         fetchRequests();
     }, [fetchRequests, router, userRole]);
+
+    const handleUniversityChange = (value: string) => {
+        setSelectedUniversityId(value === 'all' ? '' : value);
+    };
+
+    const handleTypeChange = (value: string) => {
+        setSelectedType(value === 'all' ? '' : value);
+    };
 
     const handleAction = async (action: 'approve' | 'reject') => {
         if (!selectedRequest) return;
@@ -143,17 +175,47 @@ export default function RegistrationsPage() {
 
                 <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
                     <div className="max-w-7xl mx-auto w-full">
-                        <div className="mb-8 flex items-center justify-between">
+                        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                             <div>
                                 <h1 className="text-3xl font-bold tracking-tight">Pending Approvals</h1>
                                 <p className="text-muted-foreground mt-1">
                                     Review and approve new member registrations.
                                 </p>
                             </div>
-                            <Button variant="outline" size="sm" onClick={fetchRequests} disabled={loading}>
-                                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                                Refresh
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                {isSuperadmin && (
+                                    <Select value={selectedType || 'all'} onValueChange={handleTypeChange}>
+                                        <SelectTrigger className="w-[140px] h-9 text-sm">
+                                            <SelectValue placeholder="All Types" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Types</SelectItem>
+                                            <SelectItem value="graduate">Graduate</SelectItem>
+                                            <SelectItem value="student">Student</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                {isSuperadmin && (
+                                    <Select value={selectedUniversityId || 'all'} onValueChange={handleUniversityChange}>
+                                        <SelectTrigger className="w-[200px] h-9 text-sm">
+                                            <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                                            <SelectValue placeholder="All Universities" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Universities</SelectItem>
+                                            {universities.map(uni => (
+                                                <SelectItem key={uni.id} value={uni.id.toString()}>
+                                                    {uni.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                <Button variant="outline" size="sm" onClick={fetchRequests} disabled={loading}>
+                                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                                    Refresh
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4">
@@ -169,8 +231,13 @@ export default function RegistrationsPage() {
                                     <p className="text-muted-foreground">No pending registrations found.</p>
                                 </div>
                             ) : (
-                                requests.map(req => (
-                                    <div key={req.id} className="bg-card border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+                                requests.map(req => {
+                                    const source = typeof req.payload?.source === 'string' ? req.payload.source : '';
+                                    const isCampusTransfer = source === 'student_campus_transfer';
+                                    const cardTone = isCampusTransfer ? 'border-sky-200 bg-sky-50/20' : '';
+
+                                    return (
+                                    <div key={req.id} className={`bg-card border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow ${cardTone}`}>
                                         <div className="flex-1 space-y-1">
                                             <div className="flex items-center gap-2">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${req.type === 'student' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
@@ -178,10 +245,20 @@ export default function RegistrationsPage() {
                                                     {req.type === 'student' ? <User className="w-3 h-3 mr-1" /> : <GraduationCap className="w-3 h-3 mr-1" />}
                                                     {req.type.toUpperCase()}
                                                 </span>
+                                                {isCampusTransfer && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-sky-100 text-sky-700">
+                                                        Incoming Campus Transfer
+                                                    </span>
+                                                )}
                                                 <span className="text-xs text-muted-foreground">
                                                     Via: {req.invitationLink?.description || req.invitationLink?.slug || 'Direct'}
                                                 </span>
                                             </div>
+                                            {isCampusTransfer && (
+                                                <p className="text-xs text-sky-700">
+                                                    From {String(req.payload?.sourceUniversity || 'N/A')} to {String(req.payload?.destinationUniversity || req.payload?.university || 'N/A')}
+                                                </p>
+                                            )}
                                             <h3 className="font-semibold text-lg">{req.fullName}</h3>
                                             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                                                 <div className="flex items-center gap-1">
@@ -201,7 +278,7 @@ export default function RegistrationsPage() {
                                             </Button>
                                         </div>
                                     </div>
-                                ))
+                                )})
                             )}
                         </div>
                     </div>
@@ -243,21 +320,36 @@ export default function RegistrationsPage() {
                                 <div className="space-y-2">
                                     <h4 className="text-sm font-medium text-muted-foreground">Additional Details</h4>
                                     <div className="bg-muted p-3 rounded-md text-sm space-y-1">
-                                        {Object.entries(selectedRequest.payload).map(([key, value]) => {
-                                            if (['fullName', 'phone', 'email', 'type', 'invitationLinkId', 'role_description'].includes(key)) return null;
+                                        {(() => {
+                                            // Flatten nested objects and filter out technical/ID fields
+                                            const hiddenKeys = ['fullName', 'phone', 'email', 'type', 'invitationLinkId', 'role_description', 'source', 'sourceStudentId', 'isDiaspora', 'financialSupport'];
+                                            const entries: [string, unknown][] = [];
 
-                                            if (key.endsWith('Id')) {
-                                                const pairedKey = key.slice(0, -2);
-                                                if (selectedRequest.payload[pairedKey]) return null;
-                                            }
+                                            const processEntries = (obj: Record<string, unknown>, prefix = '') => {
+                                                Object.entries(obj).forEach(([key, value]) => {
+                                                    const fullKey = prefix ? `${prefix}_${key}` : key;
+                                                    // Skip hidden keys
+                                                    if (hiddenKeys.includes(key)) return;
+                                                    // Skip ID fields (regionId, universityId, etc.) — show names instead
+                                                    if (key.endsWith('Id')) return;
+                                                    // Flatten nested objects
+                                                    if (value && typeof value === 'object' && !Array.isArray(value)) {
+                                                        processEntries(value as Record<string, unknown>, key);
+                                                    } else {
+                                                        entries.push([fullKey, value]);
+                                                    }
+                                                });
+                                            };
 
-                                            return (
+                                            processEntries(selectedRequest.payload);
+
+                                            return entries.map(([key, value]) => (
                                                 <div key={key} className="grid grid-cols-[140px_1fr]">
                                                     <span className="font-medium">{toLabel(key)}:</span>
                                                     <span>{toDisplayValue(value)}</span>
                                                 </div>
-                                            )
-                                        })}
+                                            ));
+                                        })()}
                                     </div>
                                 </div>
                             </div>
@@ -274,7 +366,7 @@ export default function RegistrationsPage() {
                             </Button>
                             <Button onClick={() => handleAction('approve')} disabled={isProcessing}>
                                 {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                                Approve & Create Account
+                                Approve
                             </Button>
                         </DialogFooter>
                     </DialogContent>

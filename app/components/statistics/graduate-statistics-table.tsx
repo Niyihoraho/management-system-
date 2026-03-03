@@ -13,9 +13,10 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, MapPin, Users, Library } from "lucide-react";
+import { ChevronDown, ChevronRight, MapPin, Users, Library, Download } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import * as XLSX from "xlsx";
 
 interface SmallGroupStats {
     id: number;
@@ -40,16 +41,78 @@ export function GraduateStatisticsTable({ stats }: { stats: ProvinceStats[] }) {
     const totalFemale = stats.reduce((sum, p) => sum + p.femaleGraduates, 0);
     const totalSmallGroups = stats.reduce((sum, p) => sum + p.totalSmallGroups, 0);
 
+    const handleExport = () => {
+        const exportData: any[] = [];
+
+        // Add Header Row
+        exportData.push({
+            "Province / Small Group": "GRAND TOTAL",
+            "Total Graduates": totalGraduates,
+            "Male": totalMale,
+            "Female": totalFemale,
+            "Small Groups": totalSmallGroups
+        });
+
+        stats.forEach(province => {
+            // Add Province Row
+            exportData.push({
+                "Province / Small Group": province.name,
+                "Total Graduates": province.totalGraduates,
+                "Male": province.maleGraduates,
+                "Female": province.femaleGraduates,
+                "Small Groups": province.totalSmallGroups
+            });
+
+            // Add Small Group Rows
+            province.smallGroupStats.forEach(group => {
+                exportData.push({
+                    "Province / Small Group": `  - ${group.name}`,
+                    "Total Graduates": group.totalGraduates,
+                    "Male": "-",
+                    "Female": "-",
+                    "Small Groups": "-"
+                });
+            });
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Graduate Statistics");
+
+        // Set column widths
+        const wscols = [
+            { wch: 40 }, // Name
+            { wch: 15 }, // Total
+            { wch: 10 }, // Male
+            { wch: 10 }, // Female
+            { wch: 15 }  // Small Groups
+        ];
+        worksheet["!cols"] = wscols;
+
+        XLSX.writeFile(workbook, `Graduate_Statistics_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
     return (
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden mt-4">
-            <div className="p-6 border-b bg-muted/30">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Users className="w-5 h-5 text-primary" />
-                    Graduate Ministry Statistics
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Overview of registered graduates, demographics, and small groups by province.
-                </p>
+            <div className="p-6 border-b bg-muted/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        Graduate Ministry Statistics
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Overview of registered graduates, demographics, and small groups by province.
+                    </p>
+                </div>
+                <Button
+                    onClick={handleExport}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 bg-background border-primary/20 hover:bg-primary/5 text-primary"
+                >
+                    <Download className="w-4 h-4" />
+                    Export Excel
+                </Button>
             </div>
             <Table>
                 <TableHeader>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, RefreshCw, Edit, Trash2, GraduationCap, Building2, MapPin, Phone, Mail } from 'lucide-react';
+import { Search, RefreshCw, Edit, Trash2, GraduationCap, Building2, MapPin, Phone, Mail, ArrowRightLeft } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -39,12 +39,14 @@ interface Student {
 
 const studentStatusLabels = {
   active: 'Active',
+  migrating: 'Migrating',
   inactive: 'Inactive',
   graduated: 'Graduated',
 };
 
 const studentStatusColors = {
   active: 'bg-green-100 text-green-800',
+  migrating: 'bg-amber-100 text-amber-800',
   inactive: 'bg-gray-100 text-gray-800',
   graduated: 'bg-blue-100 text-blue-800',
 };
@@ -56,15 +58,17 @@ interface StudentTableProps {
   onRefresh: () => void;
   onEdit?: (student: Student) => void;
   onDelete?: (student: Student) => void;
+  onMigrateCampus?: (student: Student) => void;
 }
 
-export default function StudentTable({ 
-  students, 
-  loading, 
-  error, 
+export default function StudentTable({
+  students,
+  loading,
+  error,
   onRefresh,
   onEdit,
-  onDelete
+  onDelete,
+  onMigrateCampus
 }: StudentTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,9 +76,9 @@ export default function StudentTable({
 
   const filteredStudents = students.filter(student => {
     if (!searchTerm) return true;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    
+
     return (
       student.fullName?.toLowerCase().includes(searchLower) ||
       student.email?.toLowerCase().includes(searchLower) ||
@@ -122,7 +126,7 @@ export default function StudentTable({
           </div>
 
           {/* Refresh Button */}
-          <Button 
+          <Button
             variant="outline"
             onClick={onRefresh}
             disabled={loading}
@@ -142,7 +146,7 @@ export default function StudentTable({
             <span className="text-sm font-medium">Error:</span>
             <span className="text-sm">{error}</span>
           </div>
-          <button 
+          <button
             onClick={onRefresh}
             className="mt-2 text-sm text-destructive hover:text-destructive/80 underline"
           >
@@ -245,7 +249,7 @@ export default function StudentTable({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge 
+                        <Badge
                           variant="secondary"
                           className={studentStatusColors[student.status as keyof typeof studentStatusColors] || 'bg-gray-100'}
                         >
@@ -261,6 +265,15 @@ export default function StudentTable({
                             className="h-8 w-8"
                           >
                             <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onMigrateCampus?.(student)}
+                            className="h-8 w-8 text-sky-600 hover:text-sky-700"
+                            title="Migrate Campus to Campus"
+                          >
+                            <ArrowRightLeft className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"

@@ -41,7 +41,9 @@ export async function POST(req: Request) {
         });
 
         const payload = request?.payload as Record<string, unknown> | null;
-        const isStudentMigration = payload?.source === 'student_migration';
+        const sourceType = typeof payload?.source === 'string' ? payload.source : null;
+        const isStudentMigration = sourceType === 'student_migration';
+        const isCampusTransfer = sourceType === 'student_campus_transfer';
 
         if (!request || request.status !== 'PENDING') {
             return new NextResponse('Request not found or already processed', { status: 404 });
@@ -84,6 +86,26 @@ export async function POST(req: Request) {
         const runApproval = async (includeSex: boolean) => prisma.$transaction(async (tx) => {
 
             if (request.type === 'student') {
+                if (isCampusTransfer) {
+                    const sourceStudentId = parseNumericId(payloadData.sourceStudentId);
+                    const destinationUniversityId = parseNumericId(payloadData.destinationUniversityId ?? payloadData.universityId);
+                    const destinationRegionId = parseNumericId(payloadData.destinationRegionId ?? payloadData.regionId);
+
+                    if (!sourceStudentId || !destinationUniversityId || !destinationRegionId) {
+                        throw new Error('Campus transfer payload is incomplete');
+                    }
+
+                    await tx.student.update({
+                        where: { id: sourceStudentId },
+                        data: {
+                            universityId: destinationUniversityId,
+                            regionId: destinationRegionId,
+                            smallGroupId: null,
+                            status: 'active',
+                            updatedAt: new Date(),
+                        }
+                    });
+                } else {
                 // Ensure universityId is valid
                 const uniId = parseInt(String(payloadData.universityId));
                 if (isNaN(uniId)) throw new Error("Invalid University ID");
@@ -103,6 +125,7 @@ export async function POST(req: Request) {
                         updatedAt: new Date(),
                     }
                 });
+                }
             } else if (request.type === 'graduate') {
                 const parsedSupportStatus = Object.values(SupportStatus).includes(payloadData.supportStatus)
                     ? payloadData.supportStatus

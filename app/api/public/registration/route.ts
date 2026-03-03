@@ -40,6 +40,7 @@ const submissionSchema = z.object({
     attendGraduateCell: z.boolean().optional(),
     graduateGroupId: z.string().optional(),
     noCellAvailable: z.boolean().optional(),
+    sourceStudentId: z.number().int().positive().optional(),
 });
 
 export async function POST(req: Request) {
@@ -128,11 +129,61 @@ export async function POST(req: Request) {
                 ? Number(data.universityId)
                 : undefined;
 
+        let sourceStudentId: number | undefined;
+        if (typeof data.sourceStudentId === 'number') {
+            const sourceStudent = await prisma.student.findUnique({
+                where: { id: data.sourceStudentId },
+                select: { id: true, status: true },
+            });
+
+            if (!sourceStudent || sourceStudent.status !== 'migrating') {
+                return NextResponse.json({
+                    error: 'INVALID_MIGRATION_STUDENT',
+                    message: 'Selected student is not available for migration completion.',
+                }, { status: 400 });
+            }
+
+            sourceStudentId = sourceStudent.id;
+        }
+
         const payloadWithScope = {
             ...data,
             universityId: normalizedUniversityId,
             regionId: invitation.regionId ?? undefined,
         };
+
+        if (invitation.isMigration) {
+            const migrationOrConditions: Array<{ phone?: string; email?: string }> = [{ phone: data.phone }];
+            if (data.email && data.email.length > 0) {
+                migrationOrConditions.push({ email: data.email });
+            }
+
+            const pendingMatches = await prisma.registrationrequest.findMany({
+                where: {
+                    status: 'PENDING',
+                    OR: migrationOrConditions,
+                },
+                include: {
+                    invitationlink: { select: { isMigration: true } }
+                },
+                take: 20,
+                orderBy: { createdAt: 'desc' },
+            });
+
+            const hasPendingMigration = pendingMatches.some((request) => {
+                const pendingPayload = request.payload as Record<string, unknown> | null;
+                const source = typeof pendingPayload?.source === 'string' ? pendingPayload.source : null;
+                const isMigrationLink = request.invitationlink?.isMigration === true;
+                return source === 'student_migration' || source === 'migrate_registration' || isMigrationLink;
+            });
+
+            if (hasPendingMigration) {
+                return NextResponse.json({
+                    error: 'PENDING_MIGRATION_EXISTS',
+                    message: 'A migration request with this phone/email is already pending approval. Please wait for review.',
+                }, { status: 409 });
+            }
+        }
 
         // Deduplication / Reactivation Check
         const userOrConditions: any[] = [{ contact: data.phone }];
@@ -265,6 +316,10 @@ export async function POST(req: Request) {
                 email: data.email || null,
                 payload: {
                     ...payloadWithScope,
+                    ...(invitation.isMigration
+                        ? { source: sourceStudentId ? 'student_migration' : 'migrate_registration' }
+                        : {}),
+                    ...(sourceStudentId ? { sourceStudentId } : {}),
                     location: {
                         province: data.province,
                         district: data.district,
@@ -276,10 +331,24 @@ export async function POST(req: Request) {
 
         if (data.email && data.email.length > 0) {
             try {
+                let graduateGroupName: string | undefined;
+                if (data.graduateGroupId && data.graduateGroupId.trim() !== '') {
+                    const graduateGroup = await prisma.graduatesmallgroup.findUnique({
+                        where: { id: Number(data.graduateGroupId) },
+                        select: { name: true },
+                    });
+                    graduateGroupName = graduateGroup?.name;
+                }
+
                 await sendRegistrationSubmittedEmail({
                     to: data.email,
                     fullName: data.fullName,
                     registrationType: data.type,
+                    selectedPillars: data.servingPillars,
+                    graduateGroupName,
+                    noCellAvailable: Boolean(data.noCellAvailable),
+                    isMigration: invitation.isMigration,
+                    migrationFromUniversity: data.university,
                 });
             } catch (emailError) {
                 console.error('Submission email send failed:', {
