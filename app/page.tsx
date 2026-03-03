@@ -31,17 +31,7 @@ export default function Home() {
     }
   }, [status, session, router]);
 
-  // Show loading state while checking session
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Removed loading state to display login form immediately
 
   // If authenticated, show nothing (useEffect will redirect)
   if (status === "authenticated") {
