@@ -53,7 +53,7 @@ export function NavUser({
   const { isMobile } = useSidebar()
 
   const handleLogout = () => {
-    signOut({ callbackUrl: window.location.origin + "/login" });
+    signOut({ callbackUrl: window.location.origin + "/" });
   };
 
   // Get user initials for avatar fallback

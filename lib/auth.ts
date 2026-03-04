@@ -93,6 +93,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     updateAge: 5 * 60, // 5 minutes - session token is refreshed every 5 minutes
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("https://my-ministry.gburwanda.com")) {
+        return url;
+      }
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+      try {
+        if (new URL(url).origin === baseUrl) {
+          return url;
+        }
+      } catch (e) {
+        // ignore invalid urls
+      }
+      return baseUrl;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.roles = user.roles
