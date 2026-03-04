@@ -3,8 +3,8 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { signOut } from "next-auth/react";
 
-const IDLE_TIMEOUT = 40 * 60 * 1000; // 40 minutes in ms
-const WARNING_BEFORE = 5 * 60 * 1000; // Show warning 5 minutes before logout
+const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in ms
+const WARNING_BEFORE = 1 * 60 * 1000; // Show warning 1 minute before logout
 const CHECK_INTERVAL = 30 * 1000; // Check every 30 seconds
 
 interface UseIdleTimeoutOptions {
@@ -35,7 +35,7 @@ export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
     }, []);
 
     const handleLogout = useCallback(async () => {
-        await signOut({ callbackUrl: "/" });
+        await signOut({ callbackUrl: window.location.origin + "/" });
     }, []);
 
     const extendSession = useCallback(() => {

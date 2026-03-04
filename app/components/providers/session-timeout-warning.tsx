@@ -54,7 +54,7 @@ export function SessionTimeoutWarning() {
                     </div>
 
                     <p className="text-sm text-muted-foreground mb-5">
-                        For your security, sessions expire after 40 minutes of inactivity.
+                        For your security, sessions expire after 15 minutes of inactivity.
                         Click &quot;Continue Session&quot; to stay logged in.
                     </p>
 
