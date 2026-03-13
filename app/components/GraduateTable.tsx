@@ -204,7 +204,6 @@ export default function GraduateTable({
                                 </Badge>
                               )}
                             </p>
-                            <p className="text-xs text-muted-foreground">ID: {graduate.id}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -243,14 +242,25 @@ export default function GraduateTable({
                       <TableCell>
                         <div className="space-y-1">
                           <div className="flex items-center gap-1 text-xs">
-                            <Building2 className="w-3 h-3 text-muted-foreground" />
+                            <Building2 className="w-3 h-3 text-muted-foreground shrink-0" />
                             <span>{graduate.graduateGroup?.name || 'N/A'}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="w-3 h-3" />
-                            <span className="truncate max-w-[150px]">
-                              {graduate.residenceSector || 'N/A'}
-                            </span>
+                          <div className="flex items-start gap-1 text-xs text-muted-foreground">
+                            <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5">
+                              {graduate.residenceProvince && (
+                                <p>{graduate.residenceProvince}</p>
+                              )}
+                              {graduate.residenceDistrict && (
+                                <p>{graduate.residenceDistrict}</p>
+                              )}
+                              {graduate.residenceSector && (
+                                <p>{graduate.residenceSector}</p>
+                              )}
+                              {!graduate.residenceProvince && !graduate.residenceDistrict && !graduate.residenceSector && (
+                                <p>N/A</p>
+                              )}
+                            </div>
                           </div>
                           {graduate.isDiaspora && (
                             <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700">

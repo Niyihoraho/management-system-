@@ -106,25 +106,27 @@ export async function POST(req: Request) {
                         }
                     });
                 } else {
-                // Ensure universityId is valid
-                const uniId = parseInt(String(payloadData.universityId));
-                if (isNaN(uniId)) throw new Error("Invalid University ID");
+                    // Ensure universityId is valid
+                    const uniId = parseInt(String(payloadData.universityId));
+                    if (isNaN(uniId)) throw new Error("Invalid University ID");
 
-                await tx.student.create({
-                    data: {
-                        fullName: request.fullName || payloadData.fullName,
-                        ...(includeSex ? { sex: normalizedSex } : {}),
-                        phone: request.phone || payloadData.phone,
-                        email: request.email || payloadData.email,
-                        universityId: uniId,
-                        yearOfStudy: parseInt(String(payloadData.yearOfStudy)) || 1,
-                        placeOfBirthProvince: payloadData.province,
-                        placeOfBirthDistrict: payloadData.district,
-                        status: 'active',
-                        regionId: request.invitationlink?.regionId,
-                        updatedAt: new Date(),
-                    }
-                });
+                    await tx.student.create({
+                        data: {
+                            fullName: request.fullName || payloadData.fullName,
+                            ...(includeSex ? { sex: normalizedSex } : {}),
+                            phone: request.phone || payloadData.phone,
+                            email: request.email || payloadData.email,
+                            universityId: uniId,
+                            yearOfStudy: parseInt(String(payloadData.yearOfStudy)) || 1,
+                            course: payloadData.course,
+                            placeOfBirthProvince: payloadData.province,
+                            placeOfBirthDistrict: payloadData.district,
+                            placeOfBirthSector: payloadData.sector,
+                            status: 'active',
+                            regionId: request.invitationlink?.regionId,
+                            updatedAt: new Date(),
+                        }
+                    });
                 }
             } else if (request.type === 'graduate') {
                 const parsedSupportStatus = Object.values(SupportStatus).includes(payloadData.supportStatus)

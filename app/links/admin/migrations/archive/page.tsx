@@ -35,6 +35,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface MigrationItem {
     id: number;
@@ -57,6 +58,8 @@ export default function MigrationArchivePage() {
     const [availableYears, setAvailableYears] = useState<number[]>([]);
     const [selectedYear, setSelectedYear] = useState<string>('all');
     const [selectedUniversity, setSelectedUniversity] = useState<string>('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     const fetchData = useCallback(async () => {
         try {
@@ -93,6 +96,31 @@ export default function MigrationArchivePage() {
             item.fromUniversity.toLowerCase().includes(q)
         );
     });
+
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedItems = filtered.slice(startIndex, endIndex);
+
+    const handleSearchChange = (value: string) => {
+        setSearchQuery(value);
+        setCurrentPage(1);
+    };
+
+    const handleYearChange = (value: string) => {
+        setSelectedYear(value);
+        setCurrentPage(1);
+    };
+
+    const handleUniversityChange = (value: string) => {
+        setSelectedUniversity(value);
+        setCurrentPage(1);
+    };
+
+    const goToPage = (page: number) => {
+        setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    };
 
     return (
         <SidebarProvider>
@@ -150,14 +178,14 @@ export default function MigrationArchivePage() {
                             <Input
                                 placeholder="Search by name, email, phone..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => handleSearchChange(e.target.value)}
                                 className="pl-9"
                             />
                         </div>
 
                         <div className="flex items-center gap-2">
                             <Filter className="h-4 w-4 text-muted-foreground" />
-                            <Select value={selectedYear} onValueChange={setSelectedYear}>
+                            <Select value={selectedYear} onValueChange={handleYearChange}>
                                 <SelectTrigger className="w-[130px]">
                                     <SelectValue placeholder="Year" />
                                 </SelectTrigger>
@@ -172,7 +200,7 @@ export default function MigrationArchivePage() {
                             </Select>
                         </div>
 
-                        <Select value={selectedUniversity} onValueChange={setSelectedUniversity}>
+                        <Select value={selectedUniversity} onValueChange={handleUniversityChange}>
                             <SelectTrigger className="w-[200px]">
                                 <SelectValue placeholder="University" />
                             </SelectTrigger>
@@ -221,7 +249,7 @@ export default function MigrationArchivePage() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filtered.map((item) => (
+                                    paginatedItems.map((item) => (
                                         <TableRow key={item.id}>
                                             <TableCell className="font-medium">{item.fullName}</TableCell>
                                             <TableCell className="text-muted-foreground">{item.email}</TableCell>
@@ -258,13 +286,36 @@ export default function MigrationArchivePage() {
                         </Table>
                     </div>
 
-                    {/* Summary */}
+                    {/* Pagination */}
                     {!loading && filtered.length > 0 && (
-                        <p className="text-xs text-muted-foreground text-right">
-                            Showing {filtered.length} of {items.length} records
-                            {selectedYear !== 'all' && ` for ${selectedYear}`}
-                            {selectedUniversity !== 'all' && ` from ${selectedUniversity}`}
-                        </p>
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-border rounded-b-md">
+                            <div className="text-sm text-muted-foreground">
+                                Showing {startIndex + 1} to {Math.min(endIndex, filtered.length)} of {filtered.length} records
+                                {selectedYear !== 'all' && ` for ${selectedYear}`}
+                                {selectedUniversity !== 'all' && ` from ${selectedUniversity}`}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => goToPage(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-sm text-muted-foreground px-2">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => goToPage(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
                     )}
                 </div>
             </SidebarInset>

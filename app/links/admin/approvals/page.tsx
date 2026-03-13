@@ -314,6 +314,18 @@ export default function AdminApprovalsPage() {
                                                     <span className="text-muted-foreground">Year</span>
                                                     <span>{selectedRequest.payload.yearOfStudy}</span>
                                                 </div>
+                                                {selectedRequest.payload.district && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">District</span>
+                                                        <span>{selectedRequest.payload.district}</span>
+                                                    </div>
+                                                )}
+                                                {selectedRequest.payload.sector && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Sector</span>
+                                                        <span>{selectedRequest.payload.sector}</span>
+                                                    </div>
+                                                )}
                                             </>
                                         ) : (
                                             <>

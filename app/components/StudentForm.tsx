@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { User, Phone, Mail, GraduationCap, Building2, MapPin, Users, BookOpen, Calendar, Plus, Loader2 } from "lucide-react"
 import { useUserScope } from "@/hooks/use-user-scope"
+import axios from "axios"
 
 interface Region {
   id: number;
@@ -71,6 +72,136 @@ export function StudentForm({
     status: "active",
     regionId: "",
   })
+
+  // Options states
+  const [provinces, setProvinces] = React.useState<{ id: string, name: string }[]>([])
+  const [districts, setDistricts] = React.useState<{ id: string, name: string }[]>([])
+  const [sectors, setSectors] = React.useState<{ id: string, name: string }[]>([])
+
+  // Selected ID states for cascading locations
+  const [selectedProvinceId, setSelectedProvinceId] = React.useState("")
+  const [selectedDistrictId, setSelectedDistrictId] = React.useState("")
+  const [selectedSectorId, setSelectedSectorId] = React.useState("")
+
+  // Fetch provinces on mount
+  React.useEffect(() => {
+    let mounted = true;
+    axios.get('/api/locations?type=provinces').then(r => {
+      if (mounted) {
+        setProvinces(Array.isArray(r.data) ? r.data : []);
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const fetchDistricts = async (provinceId: string) => {
+    try {
+      const res = await axios.get(`/api/locations?type=districts&parentId=${provinceId}`);
+      return Array.isArray(res.data) ? res.data : [];
+    } catch { return []; }
+  };
+
+  const fetchSectors = async (districtId: string) => {
+    try {
+      const res = await axios.get(`/api/locations?type=sectors&parentId=${districtId}`);
+      return Array.isArray(res.data) ? res.data : [];
+    } catch { return []; }
+  };
+
+  // Pre-fill location selectors on edit
+  const locationLoadedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    // Reset the ref when the form closes or initialData changes
+    if (!isOpen) {
+      locationLoadedRef.current = false;
+      return;
+    }
+  }, [isOpen, initialData]);
+
+  React.useEffect(() => {
+    const loadLocations = async () => {
+      if (!isOpen || provinces.length === 0 || locationLoadedRef.current) return;
+      locationLoadedRef.current = true;
+
+      if (initialData?.placeOfBirthProvince) {
+        const provName = initialData.placeOfBirthProvince.trim().toLowerCase();
+        const matchedProvince = provinces.find(x => x.name.trim().toLowerCase() === provName);
+
+        if (matchedProvince) {
+          // Found a real API match — use its id for cascading fetches
+          setSelectedProvinceId(matchedProvince.id);
+
+          const fetchedDistricts = await fetchDistricts(matchedProvince.id);
+          setDistricts(fetchedDistricts);
+
+          if (initialData.placeOfBirthDistrict) {
+            const distName = initialData.placeOfBirthDistrict.trim().toLowerCase();
+            const matchedDistrict = fetchedDistricts.find((x: any) => x.name.trim().toLowerCase() === distName);
+
+            if (matchedDistrict) {
+              setSelectedDistrictId(matchedDistrict.id);
+
+              const fetchedSectors = await fetchSectors(matchedDistrict.id);
+              setSectors(fetchedSectors);
+
+              if (initialData.placeOfBirthSector) {
+                const secName = initialData.placeOfBirthSector.trim().toLowerCase();
+                const matchedSector = fetchedSectors.find((x: any) => x.name.trim().toLowerCase() === secName);
+                if (matchedSector) {
+                  console.log('Found matching sector:', matchedSector);
+                  setSelectedSectorId(matchedSector.id);
+                } else {
+                  console.log('No matching sector found for', secName, 'adding synthetic');
+                  // Sector name doesn't match — add as synthetic entry so it shows in the dropdown
+                  const synSector = { id: `syn_${initialData.placeOfBirthSector}`, name: initialData.placeOfBirthSector };
+                  setSectors(prev => [...prev, synSector]);
+                  setSelectedSectorId(synSector.id);
+                }
+              }
+            } else {
+              console.log('No matching district found for', distName, 'adding synthetic');
+              // District name doesn't match — add as synthetic entry
+              const synDistrict = { id: `syn_${initialData.placeOfBirthDistrict}`, name: initialData.placeOfBirthDistrict };
+              setDistricts(prev => [...prev, synDistrict]);
+              setSelectedDistrictId(synDistrict.id);
+
+              // Can't cascade further with a synthetic id, but show sector if available
+              if (initialData.placeOfBirthSector) {
+                const synSector = { id: `syn_${initialData.placeOfBirthSector}`, name: initialData.placeOfBirthSector };
+                setSectors([synSector]);
+                setSelectedSectorId(synSector.id);
+              }
+            }
+          }
+        } else {
+          console.log('No matching province found for', provName, 'adding synthetic');
+          // Province doesn't match API data — show stored values as synthetic entries
+          const synProvince = { id: `syn_${initialData.placeOfBirthProvince}`, name: initialData.placeOfBirthProvince };
+          setProvinces(prev => [...prev, synProvince]);
+          setSelectedProvinceId(synProvince.id);
+
+          if (initialData.placeOfBirthDistrict) {
+            const synDistrict = { id: `syn_${initialData.placeOfBirthDistrict}`, name: initialData.placeOfBirthDistrict };
+            setDistricts([synDistrict]);
+            setSelectedDistrictId(synDistrict.id);
+          }
+          if (initialData.placeOfBirthSector) {
+            const synSector = { id: `syn_${initialData.placeOfBirthSector}`, name: initialData.placeOfBirthSector };
+            setSectors([synSector]);
+            setSelectedSectorId(synSector.id);
+          }
+        }
+      } else {
+        setSelectedProvinceId("");
+        setSelectedDistrictId("");
+        setSelectedSectorId("");
+        setDistricts([]);
+        setSectors([]);
+      }
+    };
+    loadLocations();
+  }, [isOpen, initialData, provinces]);
 
   // Get user scope for pre-selected fields
   const { userScope, isLoading: scopeLoading } = useUserScope()
@@ -167,6 +298,43 @@ export function StudentForm({
       }))
     }
   }
+
+  const handleProvinceChange = async (val: string) => {
+    const p = provinces.find(x => x.id === val);
+    setSelectedProvinceId(val);
+    setSelectedDistrictId("");
+    setSelectedSectorId("");
+    setDistricts([]);
+    setSectors([]);
+    handleInputChange("placeOfBirthProvince", p?.name || "");
+    handleInputChange("placeOfBirthDistrict", "");
+    handleInputChange("placeOfBirthSector", "");
+
+    if (val) {
+      const d = await fetchDistricts(val);
+      setDistricts(d);
+    }
+  };
+
+  const handleDistrictChange = async (val: string) => {
+    const d = districts.find(x => x.id === val);
+    setSelectedDistrictId(val);
+    setSelectedSectorId("");
+    setSectors([]);
+    handleInputChange("placeOfBirthDistrict", d?.name || "");
+    handleInputChange("placeOfBirthSector", "");
+
+    if (val) {
+      const s = await fetchSectors(val);
+      setSectors(s);
+    }
+  };
+
+  const handleSectorChange = (val: string) => {
+    const s = sectors.find(x => x.id === val);
+    setSelectedSectorId(val);
+    handleInputChange("placeOfBirthSector", s?.name || "");
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -463,7 +631,7 @@ export function StudentForm({
                       </Label>
                       <Input
                         id="course"
-                        placeholder="Enter course of study"
+                        placeholder="e.g. Computer Science"
                         className="h-11"
                         value={formData.course}
                         onChange={(e) => handleInputChange("course", e.target.value)}
@@ -497,7 +665,7 @@ export function StudentForm({
 
                 {/* Place of Birth */}
                 <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Place of Birth (Up to Village)</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Place of Birth</h4>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -505,13 +673,19 @@ export function StudentForm({
                         <MapPin className="h-4 w-4" />
                         Province
                       </Label>
-                      <Input
-                        id="placeOfBirthProvince"
-                        placeholder="Enter province"
-                        className="h-11"
-                        value={formData.placeOfBirthProvince}
-                        onChange={(e) => handleInputChange("placeOfBirthProvince", e.target.value)}
-                      />
+                      <Select
+                        value={selectedProvinceId || undefined}
+                        onValueChange={handleProvinceChange}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select province" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {provinces.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-2">
@@ -519,13 +693,20 @@ export function StudentForm({
                         <MapPin className="h-4 w-4" />
                         District
                       </Label>
-                      <Input
-                        id="placeOfBirthDistrict"
-                        placeholder="Enter district"
-                        className="h-11"
-                        value={formData.placeOfBirthDistrict}
-                        onChange={(e) => handleInputChange("placeOfBirthDistrict", e.target.value)}
-                      />
+                      <Select
+                        value={selectedDistrictId || undefined}
+                        onValueChange={handleDistrictChange}
+                        disabled={!selectedProvinceId}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select district" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {districts.map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-2">
@@ -533,15 +714,21 @@ export function StudentForm({
                         <MapPin className="h-4 w-4" />
                         Sector
                       </Label>
-                      <Input
-                        id="placeOfBirthSector"
-                        placeholder="Enter sector"
-                        className="h-11"
-                        value={formData.placeOfBirthSector}
-                        onChange={(e) => handleInputChange("placeOfBirthSector", e.target.value)}
-                      />
+                      <Select
+                        value={selectedSectorId || undefined}
+                        onValueChange={handleSectorChange}
+                        disabled={!selectedDistrictId}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select sector" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {sectors.map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-
 
                   </div>
                 </div>

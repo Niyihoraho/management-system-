@@ -203,8 +203,13 @@ export async function DELETE(req: Request) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        const isSuperAdmin = session.user.roles?.some(role => role.scope === 'superadmin');
-        if (!isSuperAdmin) {
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return new NextResponse('Forbidden', { status: 403 });
+        }
+
+        const canDelete = ['superadmin', 'national', 'region', 'university'].includes(userScope.scope);
+        if (!canDelete) {
             return new NextResponse('Forbidden', { status: 403 });
         }
 
@@ -213,6 +218,24 @@ export async function DELETE(req: Request) {
 
         if (!id) {
             return new NextResponse('ID required', { status: 400 });
+        }
+
+        const invitation = await prisma.invitationlink.findUnique({
+            where: { id },
+        });
+
+        if (!invitation) {
+            return new NextResponse('Invitation not found', { status: 404 });
+        }
+
+        // Scope check: region users can only delete their region's links
+        if (userScope.scope === 'region' && invitation.regionId !== userScope.regionId) {
+            return new NextResponse('Forbidden', { status: 403 });
+        }
+
+        // Scope check: university users can only delete links created by themselves
+        if (userScope.scope === 'university' && invitation.createdBy !== session.user.id) {
+            return new NextResponse('Forbidden: Can only delete invitations you created', { status: 403 });
         }
 
         await prisma.invitationlink.delete({

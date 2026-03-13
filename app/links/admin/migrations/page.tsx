@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { Button } from "@/components/ui/button";
 import axios from 'axios';
 import { ArrowRightLeft, Search, Loader2, Users } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
@@ -46,6 +47,8 @@ export default function MigrationMembersPage() {
     const [items, setItems] = useState<MigrationItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     const fetchData = useCallback(async () => {
         try {
@@ -72,6 +75,21 @@ export default function MigrationMembersPage() {
             item.fromUniversity.toLowerCase().includes(q)
         );
     });
+
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedItems = filtered.slice(startIndex, endIndex);
+
+    const handleSearchChange = (value: string) => {
+        setSearchQuery(value);
+        setCurrentPage(1);
+    };
+
+    const goToPage = (page: number) => {
+        setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    };
 
     return (
         <SidebarProvider>
@@ -121,7 +139,7 @@ export default function MigrationMembersPage() {
                         <Input
                             placeholder="Search by name, email, phone, university..."
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => handleSearchChange(e.target.value)}
                             className="pl-9"
                         />
                     </div>
@@ -158,7 +176,7 @@ export default function MigrationMembersPage() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filtered.map((item) => (
+                                    paginatedItems.map((item) => (
                                         <TableRow key={`${item.id}-${item.workflowStatus ?? 'na'}`}>
                                             <TableCell className="font-medium">{item.fullName}</TableCell>
                                             <TableCell className="text-muted-foreground">{item.email}</TableCell>
@@ -200,6 +218,36 @@ export default function MigrationMembersPage() {
                             </TableBody>
                         </Table>
                     </div>
+
+                    {/* Pagination */}
+                    {!loading && filtered.length > 0 && (
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-border rounded-b-md">
+                            <div className="text-sm text-muted-foreground">
+                                Showing {startIndex + 1} to {Math.min(endIndex, filtered.length)} of {filtered.length} members
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => goToPage(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-sm text-muted-foreground px-2">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => goToPage(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </SidebarInset>
         </SidebarProvider>

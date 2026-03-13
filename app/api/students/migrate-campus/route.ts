@@ -136,6 +136,11 @@ export async function POST(request: NextRequest) {
                         universityId: destinationUniversity.id,
                         university: destinationUniversity.name,
                         regionId: destinationRegionId,
+                        province: student.placeOfBirthProvince,
+                        district: student.placeOfBirthDistrict,
+                        sector: student.placeOfBirthSector,
+                        cell: student.placeOfBirthCell,
+                        village: student.placeOfBirthVillage,
                     },
                 },
             });

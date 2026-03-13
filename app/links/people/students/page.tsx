@@ -119,6 +119,8 @@ export default function StudentsPage() {
   const router = useRouter();
   const { userRole, isLoading: roleLoading } = useRoleAccess();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [students, setStudents] = useState<Student[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
   const [smallGroups, setSmallGroups] = useState<SmallGroup[]>([]);
@@ -400,6 +402,21 @@ export default function StudentsPage() {
     );
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedStudents = filteredStudents.slice(startIndex, endIndex);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -450,7 +467,7 @@ export default function StudentsPage() {
                     type="text"
                     placeholder="Search students..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 sm:py-2.5 bg-muted/30 border border-border/20 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:bg-muted/50 transition-all duration-200 text-foreground placeholder:text-muted-foreground text-sm sm:text-base"
                   />
                 </div>
@@ -510,7 +527,7 @@ export default function StudentsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredStudents.length === 0 ? (
+                      {paginatedStudents.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             <div className="flex flex-col items-center gap-2">
@@ -520,7 +537,7 @@ export default function StudentsPage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredStudents.map((student) => (
+                        paginatedStudents.map((student) => (
                           <TableRow key={student.id} className="hover:bg-muted/50">
                             <TableCell>
                               <div className="flex items-center gap-3">
@@ -531,7 +548,6 @@ export default function StudentsPage() {
                                 </div>
                                 <div>
                                   <p className="font-medium text-sm">{student.fullName}</p>
-                                  <p className="text-xs text-muted-foreground">ID: {student.id}</p>
                                 </div>
                               </div>
                             </TableCell>
@@ -565,11 +581,26 @@ export default function StudentsPage() {
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1">
-                                <p className="text-sm font-medium truncate max-w-[150px]">
-                                  {[student.placeOfBirthProvince, student.placeOfBirthDistrict, student.placeOfBirthSector]
-                                    .filter(Boolean)
-                                    .join(', ') || 'N/A'}
-                                </p>
+                                <div className="text-xs text-muted-foreground space-y-0.5">
+                                  {student.placeOfBirthProvince && (
+                                    <p>Prov: {student.placeOfBirthProvince}</p>
+                                  )}
+                                  {student.placeOfBirthDistrict && (
+                                    <p>Dist: {student.placeOfBirthDistrict}</p>
+                                  )}
+                                  {student.placeOfBirthSector && (
+                                    <p>Sec: {student.placeOfBirthSector}</p>
+                                  )}
+                                  {student.placeOfBirthCell && (
+                                    <p>Cell: {student.placeOfBirthCell}</p>
+                                  )}
+                                  {student.placeOfBirthVillage && (
+                                    <p>Vill: {student.placeOfBirthVillage}</p>
+                                  )}
+                                  {!student.placeOfBirthProvince && !student.placeOfBirthDistrict && !student.placeOfBirthSector && !student.placeOfBirthCell && !student.placeOfBirthVillage && (
+                                    <p>N/A</p>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground">{student.smallgroup?.name || 'No Group'}</p>
                               </div>
                             </TableCell>
@@ -642,6 +673,36 @@ export default function StudentsPage() {
                       )}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+
+              {/* Pagination */}
+              {!loading && filteredStudents.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredStudents.length)} of {filteredStudents.length} students
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
