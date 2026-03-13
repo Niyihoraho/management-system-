@@ -196,7 +196,6 @@ export default function StudentTable({
                           </div>
                           <div>
                             <p className="font-medium text-sm">{student.fullName}</p>
-                            <p className="text-xs text-muted-foreground">ID: {student.id}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -235,16 +234,31 @@ export default function StudentTable({
                       <TableCell>
                         <div className="space-y-1">
                           <div className="flex items-center gap-1 text-xs">
-                            <Building2 className="w-3 h-3 text-muted-foreground" />
+                            <Building2 className="w-3 h-3 text-muted-foreground shrink-0" />
                             <span>{student.smallGroup?.name || 'N/A'}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="w-3 h-3" />
-                            <span className="truncate max-w-[150px]">
-                              {[student.placeOfBirthVillage, student.placeOfBirthCell, student.placeOfBirthSector]
-                                .filter(Boolean)
-                                .join(', ') || 'N/A'}
-                            </span>
+                          <div className="flex items-start gap-1 text-xs text-muted-foreground">
+                            <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5">
+                              {student.placeOfBirthProvince && (
+                                <p>Prov: {student.placeOfBirthProvince}</p>
+                              )}
+                              {student.placeOfBirthDistrict && (
+                                <p>Dist: {student.placeOfBirthDistrict}</p>
+                              )}
+                              {student.placeOfBirthSector && (
+                                <p>Sec: {student.placeOfBirthSector}</p>
+                              )}
+                              {student.placeOfBirthCell && (
+                                <p>Cell: {student.placeOfBirthCell}</p>
+                              )}
+                              {student.placeOfBirthVillage && (
+                                <p>Vill: {student.placeOfBirthVillage}</p>
+                              )}
+                              {!student.placeOfBirthProvince && !student.placeOfBirthDistrict && !student.placeOfBirthSector && !student.placeOfBirthCell && !student.placeOfBirthVillage && (
+                                <p>N/A</p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </TableCell>

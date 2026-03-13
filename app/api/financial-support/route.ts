@@ -64,6 +64,7 @@ export async function GET(req: Request) {
                             email: true,
                             phone: true,
                             provinceId: true,
+                            isDiaspora: true,
                             residenceProvince: true,
                             residenceDistrict: true,
                             updatedAt: true,

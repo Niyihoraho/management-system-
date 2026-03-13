@@ -134,6 +134,9 @@ export default function GraduatesPage() {
     const isGraduateScope = userRole === 'graduatesmallgroup';
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProvince, setSelectedProvince] = useState<string>("all");
+    const [diasporaFilter, setDiasporaFilter] = useState<string>("all");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
     const [graduates, setGraduates] = useState<Graduate[]>([]);
     const [provinces, setProvinces] = useState<{ id: string; name: string }[]>([]);
     const [graduateGroups, setGraduateGroups] = useState<GraduateSmallGroup[]>([]);
@@ -371,6 +374,10 @@ export default function GraduatesPage() {
             return false;
         }
 
+        // Diaspora Filter
+        if (diasporaFilter === 'diaspora' && !graduate.isDiaspora) return false;
+        if (diasporaFilter === 'local' && graduate.isDiaspora) return false;
+
         if (!searchTerm) return true;
 
         const searchLower = searchTerm.toLowerCase();
@@ -383,6 +390,31 @@ export default function GraduatesPage() {
             graduate.course?.toLowerCase().includes(searchLower)
         );
     });
+
+    // Pagination
+    const totalPages = Math.ceil(filteredGraduates.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedGraduates = filteredGraduates.slice(startIndex, endIndex);
+
+    const handleSearchChange = (value: string) => {
+        setSearchTerm(value);
+        setCurrentPage(1);
+    };
+
+    const handleProvinceChange = (value: string) => {
+        setSelectedProvince(value);
+        setCurrentPage(1);
+    };
+
+    const handleDiasporaChange = (value: string) => {
+        setDiasporaFilter(value);
+        setCurrentPage(1);
+    };
+
+    const goToPage = (page: number) => {
+        setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    };
 
     return (
         <SidebarProvider>
@@ -434,7 +466,7 @@ export default function GraduatesPage() {
                                         type="text"
                                         placeholder="Search graduates..."
                                         value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onChange={(e) => handleSearchChange(e.target.value)}
                                         className="w-full pl-10 pr-4 py-2 sm:py-2.5 bg-muted/30 border border-border/20 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:bg-muted/50 transition-all duration-200 text-foreground placeholder:text-muted-foreground text-sm sm:text-base"
                                     />
                                 </div>
@@ -456,7 +488,7 @@ export default function GraduatesPage() {
                                     <div className="w-full sm:w-48">
                                         <Select
                                             value={selectedProvince}
-                                            onValueChange={setSelectedProvince}
+                                            onValueChange={handleProvinceChange}
                                         >
                                             <SelectTrigger className="w-full">
                                                 <SelectValue placeholder="All Provinces" />
@@ -472,6 +504,23 @@ export default function GraduatesPage() {
                                         </Select>
                                     </div>
 
+
+                                    {/* Diaspora Filter */}
+                                    <div className="w-full sm:w-40">
+                                        <Select
+                                            value={diasporaFilter}
+                                            onValueChange={handleDiasporaChange}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="All Graduates" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Graduates</SelectItem>
+                                                <SelectItem value="diaspora">Diaspora Only</SelectItem>
+                                                <SelectItem value="local">Local Only</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                     {/* Add New Graduate Button */}
                                     <Button
                                         onClick={() => setIsFormOpen(true)}
@@ -527,7 +576,7 @@ export default function GraduatesPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {filteredGraduates.length === 0 ? (
+                                            {paginatedGraduates.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                                         <div className="flex flex-col items-center gap-2">
@@ -537,7 +586,7 @@ export default function GraduatesPage() {
                                                     </TableCell>
                                                 </TableRow>
                                             ) : (
-                                                filteredGraduates.map((graduate) => (
+                                                paginatedGraduates.map((graduate) => (
                                                     <TableRow key={graduate.id} className="hover:bg-muted/50">
                                                         <TableCell>
                                                             <div className="flex items-center gap-3">
@@ -605,11 +654,20 @@ export default function GraduatesPage() {
                                                                 {graduate.isDiaspora && (
                                                                     <Badge variant="secondary" className="text-xs">Diaspora</Badge>
                                                                 )}
-                                                                <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                                                                    {[graduate.residenceSector, graduate.residenceDistrict, graduate.residenceProvince]
-                                                                        .filter(Boolean)
-                                                                        .join(', ') || 'N/A'}
-                                                                </p>
+                                                                <div className="text-xs text-muted-foreground space-y-0.5">
+                                                                    {graduate.residenceProvince && (
+                                                                        <p>{graduate.residenceProvince}</p>
+                                                                    )}
+                                                                    {graduate.residenceDistrict && (
+                                                                        <p>{graduate.residenceDistrict}</p>
+                                                                    )}
+                                                                    {graduate.residenceSector && (
+                                                                        <p>{graduate.residenceSector}</p>
+                                                                    )}
+                                                                    {!graduate.residenceProvince && !graduate.residenceDistrict && !graduate.residenceSector && (
+                                                                        <p>N/A</p>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
@@ -667,6 +725,36 @@ export default function GraduatesPage() {
                                             )}
                                         </TableBody>
                                     </Table>
+                                </div>
+                            )}
+
+                            {/* Pagination */}
+                            {!loading && filteredGraduates.length > 0 && (
+                                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                                    <div className="text-sm text-muted-foreground">
+                                        Showing {startIndex + 1} to {Math.min(endIndex, filteredGraduates.length)} of {filteredGraduates.length} graduates
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => goToPage(currentPage - 1)}
+                                            disabled={currentPage === 1}
+                                        >
+                                            Previous
+                                        </Button>
+                                        <span className="text-sm text-muted-foreground px-2">
+                                            Page {currentPage} of {totalPages}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => goToPage(currentPage + 1)}
+                                            disabled={currentPage === totalPages}
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
                         </div>

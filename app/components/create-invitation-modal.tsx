@@ -33,7 +33,7 @@ interface CreateInvitationModalProps {
 }
 
 export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitationModalProps) {
-    const { userRole } = useRoleAccess();
+    const { userRole, userScope } = useRoleAccess();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -67,6 +67,11 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
             .then(res => {
                 if (mounted) {
                     setRegions(res.data);
+
+                    // Auto-select region if user belongs to one
+                    if (userScope?.regionId) {
+                        handleRegionChange(userScope.regionId.toString());
+                    }
                 }
             })
             .catch(err => {
@@ -77,7 +82,14 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
         return () => {
             mounted = false;
         };
-    }, []);
+    }, [userScope]);
+
+    // Added useEffect to auto-select university if user belongs to one, once universities are loaded
+    useEffect(() => {
+        if (universities.length > 0 && userScope?.universityId) {
+            setSelectedUniversityIds([userScope.universityId]);
+        }
+    }, [universities, userScope]);
 
     // Fetch Universities when region changes
     const handleRegionChange = async (regionId: string) => {
@@ -97,12 +109,18 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
     };
 
     const toggleUniversity = (id: number) => {
+        // Prevent unselecting if locked to this university
+        if (userScope?.universityId === id) return;
+
         setSelectedUniversityIds(prev =>
             prev.includes(id) ? prev.filter(uid => uid !== id) : [...prev, id]
         );
     };
 
     const toggleAllUniversities = () => {
+        // Prevent toggle all if locked to a single university
+        if (userScope?.universityId) return;
+
         if (selectedUniversityIds.length === universities.length) {
             setSelectedUniversityIds([]);
         } else {
@@ -212,7 +230,11 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
                         <div className="space-y-4 border rounded-md p-3 bg-muted/20">
                             <div className="space-y-2">
                                 <Label>Region scope (Optional)</Label>
-                                <Select value={selectedRegion} onValueChange={handleRegionChange}>
+                                <Select
+                                    value={selectedRegion}
+                                    onValueChange={handleRegionChange}
+                                    disabled={!!userScope?.regionId}
+                                >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select Region" />
                                     </SelectTrigger>
@@ -233,32 +255,43 @@ export function CreateInvitationModal({ onLinkCreated, children }: CreateInvitat
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
                                     <div className="flex items-center justify-between">
                                         <Label>Universities ({selectedUniversityIds.length}/{universities.length})</Label>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-auto py-0 text-xs text-blue-600"
-                                            onClick={toggleAllUniversities}
-                                        >
-                                            {selectedUniversityIds.length === universities.length ? 'Deselect All' : 'Select All'}
-                                        </Button>
+                                        {!userScope?.universityId && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-auto py-0 text-xs text-blue-600"
+                                                onClick={toggleAllUniversities}
+                                            >
+                                                {selectedUniversityIds.length === universities.length ? 'Deselect All' : 'Select All'}
+                                            </Button>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-1 gap-2 max-h-[150px] overflow-y-auto border rounded p-2 bg-background">
-                                        {universities.map(uni => (
-                                            <div key={uni.id} className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`uni-${uni.id}`}
-                                                    checked={selectedUniversityIds.includes(uni.id)}
-                                                    onCheckedChange={() => toggleUniversity(uni.id)}
-                                                />
-                                                <label
-                                                    htmlFor={`uni-${uni.id}`}
-                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                                >
-                                                    {uni.name}
-                                                </label>
-                                            </div>
-                                        ))}
+                                        {universities.map(uni => {
+                                            const isLocked = !!userScope?.universityId && userScope.universityId !== uni.id;
+                                            const isDisabled = !!userScope?.universityId;
+
+                                            // Don't even show other universities if locked to one
+                                            if (isLocked) return null;
+
+                                            return (
+                                                <div key={uni.id} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`uni-${uni.id}`}
+                                                        checked={selectedUniversityIds.includes(uni.id)}
+                                                        onCheckedChange={() => toggleUniversity(uni.id)}
+                                                        disabled={isDisabled}
+                                                    />
+                                                    <label
+                                                        htmlFor={`uni-${uni.id}`}
+                                                        className={`text-sm font-medium leading-none ${isDisabled ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                    >
+                                                        {uni.name}
+                                                    </label>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}

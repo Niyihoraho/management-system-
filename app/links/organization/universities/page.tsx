@@ -75,6 +75,8 @@ export default function UniversitiesPage() {
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [universities, setUniversities] = useState<University[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [loading, setLoading] = useState(true);
   const [isRefetching, setIsRefetching] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -222,6 +224,27 @@ export default function UniversitiesPage() {
     );
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUniversities.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUniversities = filteredUniversities.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handleRegionChange = (value: string) => {
+    setSelectedRegion(value);
+    setCurrentPage(1);
+  };
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -273,7 +296,7 @@ export default function UniversitiesPage() {
                     type="text"
                     placeholder="Search universities..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 sm:py-2.5 bg-muted/30 border border-border/20 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:bg-muted/50 transition-all duration-200 text-foreground placeholder:text-muted-foreground text-sm sm:text-base"
                   />
                 </div>
@@ -293,7 +316,7 @@ export default function UniversitiesPage() {
               <div className="w-full sm:w-48">
                 <Select
                   value={selectedRegion}
-                  onValueChange={setSelectedRegion}
+                  onValueChange={handleRegionChange}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="All Regions" />
@@ -373,7 +396,7 @@ export default function UniversitiesPage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredUniversities.map((university) => (
+                        paginatedUniversities.map((university) => (
                           <TableRow key={university.id} className="hover:bg-muted/50">
                             <TableCell className="font-medium">
                               #{university.id}
@@ -470,13 +493,32 @@ export default function UniversitiesPage() {
                 </div>
               )}
 
-              {/* Table Footer */}
+              {/* Pagination */}
               {!loading && filteredUniversities.length > 0 && (
-                <div className="bg-muted/50 px-3 sm:px-6 py-3 border-t border-border">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
-                    <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-                      Showing <span className="font-medium text-foreground">{filteredUniversities.length}</span> of <span className="font-medium text-foreground">{universities.length}</span> universities
-                    </div>
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredUniversities.length)} of {filteredUniversities.length} universities
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
                   </div>
                 </div>
               )}
