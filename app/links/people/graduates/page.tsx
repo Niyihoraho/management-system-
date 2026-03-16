@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban, Sparkles } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban, Sparkles, Download } from 'lucide-react';
+import { format } from 'date-fns';
+import * as XLSX from "xlsx";
 import { AppSidebar } from "@/components/app-sidebar";
 import GraduateForm from "@/app/components/GraduateForm";
 import { AssignGroupModal } from "@/components/AssignGroupModal";
@@ -365,6 +367,39 @@ export default function GraduatesPage() {
         setEditingGraduate(graduate);
     };
 
+    // Export to Excel
+    const handleExportExcel = () => {
+        try {
+            const exportData = filteredGraduates.map(g => ({
+                "Full Name": g.fullName,
+                "Sex": g.sex || 'N/A',
+                "Phone": g.phone || 'N/A',
+                "Email": g.email || 'N/A',
+                "University": g.university || 'N/A',
+                "Course": g.course || 'N/A',
+                "Profession": g.profession || 'N/A',
+                "Graduation Year": g.graduationYear || 'N/A',
+                "Is Diaspora": g.isDiaspora ? 'Yes' : 'No',
+                "Serving Pillars": g.servingPillars?.map(p => pillarLabels[p] || p).join(', ') || 'N/A',
+                "Province": g.residenceProvince || 'N/A',
+                "District": g.residenceDistrict || 'N/A',
+                "Sector": g.residenceSector || 'N/A',
+                "Graduate Cell": g.graduateGroup?.name || 'Unassigned',
+                "Status": graduateStatusLabels[g.status] || g.status,
+                "Created At": g.createdAt ? format(new Date(g.createdAt), "MMM d, yyyy") : 'N/A'
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            XLSX.utils.book_append_sheet(wb, ws, "Graduates");
+            XLSX.writeFile(wb, `Graduates_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success("Excel export successful");
+        } catch (error) {
+            console.error("Export error:", error);
+            toast.error("Failed to export Excel");
+        }
+    };
+
 
 
     // Filter graduates
@@ -480,6 +515,18 @@ export default function GraduatesPage() {
                                     <RefreshCw className={`w-4 h-4 ${(loading || isRefetching) ? 'animate-spin' : ''}`} />
                                     <span className="hidden sm:inline">{(loading || isRefetching) ? 'Loading...' : 'Refresh'}</span>
                                 </button>
+
+                                {/* Export Button */}
+                                <Button
+                                    onClick={handleExportExcel}
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={loading || filteredGraduates.length === 0}
+                                    className="flex items-center gap-2 bg-background border-primary/20 hover:bg-primary/5 text-primary h-9 sm:h-10"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Export Excel</span>
+                                </Button>
                             </div>
 
                             {!isGraduateScope && (
