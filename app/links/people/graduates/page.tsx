@@ -417,12 +417,17 @@ export default function GraduatesPage() {
 
         const searchLower = searchTerm.toLowerCase();
 
+        const matchesPillars = graduate.servingPillars?.some(pillar => 
+            (pillarLabels[pillar] || pillar).toLowerCase().includes(searchLower)
+        );
+
         return (
             graduate.fullName?.toLowerCase().includes(searchLower) ||
             graduate.email?.toLowerCase().includes(searchLower) ||
             graduate.phone?.includes(searchTerm) ||
             graduate.university?.toLowerCase().includes(searchLower) ||
-            graduate.course?.toLowerCase().includes(searchLower)
+            graduate.course?.toLowerCase().includes(searchLower) ||
+            matchesPillars
         );
     });
 
