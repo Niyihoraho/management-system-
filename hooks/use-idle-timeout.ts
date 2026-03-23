@@ -5,7 +5,7 @@ import { signOut } from "next-auth/react";
 
 const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in ms
 const WARNING_BEFORE = 1 * 60 * 1000; // Show warning 1 minute before logout
-const CHECK_INTERVAL = 30 * 1000; // Check every 30 seconds
+const CHECK_INTERVAL = 5 * 1000; // Check every 5 seconds to be precise
 
 interface UseIdleTimeoutOptions {
     onIdle?: () => void;
@@ -15,14 +15,18 @@ interface UseIdleTimeoutOptions {
 
 export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
     const { onIdle, onWarning, enabled = true } = options;
-    const lastActivityRef = useRef<number>(Date.now());
+    const msystem_lastActivityRef = useRef<number>(Date.now());
     const warningShownRef = useRef(false);
+    const isLoggingOutRef = useRef(false);
     const [showWarning, setShowWarning] = useState(false);
     const [remainingTime, setRemainingTime] = useState(IDLE_TIMEOUT);
 
     const resetTimer = useCallback(() => {
-        lastActivityRef.current = Date.now();
+        const now = Date.now();
+        msystem_lastActivityRef.current = now;
+        localStorage.setItem("msystem_lastActivity", now.toString());
         warningShownRef.current = false;
+        isLoggingOutRef.current = false;
         setShowWarning(false);
         setRemainingTime(IDLE_TIMEOUT);
     }, []);
@@ -30,7 +34,9 @@ export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
     const handleActivity = useCallback(() => {
         // Only reset if warning is not showing (user must explicitly dismiss warning)
         if (!warningShownRef.current) {
-            lastActivityRef.current = Date.now();
+            const now = Date.now();
+            msystem_lastActivityRef.current = now;
+            localStorage.setItem("msystem_lastActivity", now.toString());
         }
     }, []);
 
@@ -46,6 +52,14 @@ export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
 
     useEffect(() => {
         if (!enabled) return;
+
+        // Initialize from localStorage if available
+        const storedActivity = localStorage.getItem("msystem_lastActivity");
+        if (storedActivity) {
+            msystem_lastActivityRef.current = parseInt(storedActivity, 10);
+        } else {
+            localStorage.setItem("msystem_lastActivity", msystem_lastActivityRef.current.toString());
+        }
 
         // Track user activity events
         const events = [
@@ -72,9 +86,33 @@ export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
             document.addEventListener(event, throttledActivity, { passive: true });
         });
 
-        // Check idle status periodically
-        const intervalId = setInterval(() => {
-            const elapsed = Date.now() - lastActivityRef.current;
+        // Listen for storage events from other tabs
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === "msystem_lastActivity" && e.newValue) {
+                msystem_lastActivityRef.current = parseInt(e.newValue, 10);
+                
+                // If warning is showing, but another tab updated activity, hide it!
+                if (warningShownRef.current) {
+                    const elapsed = Date.now() - msystem_lastActivityRef.current;
+                    const remaining = Math.max(0, IDLE_TIMEOUT - elapsed);
+                    if (remaining > WARNING_BEFORE) {
+                        warningShownRef.current = false;
+                        setShowWarning(false);
+                        setRemainingTime(remaining);
+                    }
+                }
+            }
+        };
+        window.addEventListener("storage", handleStorageChange);
+
+        const checkTimeout = () => {
+            // Always double check localStorage to ensure we have the absolute latest from any tab
+            const storedActivity = localStorage.getItem("msystem_lastActivity");
+            if (storedActivity) {
+                msystem_lastActivityRef.current = Math.max(msystem_lastActivityRef.current, parseInt(storedActivity, 10));
+            }
+
+            const elapsed = Date.now() - msystem_lastActivityRef.current;
             const remaining = Math.max(0, IDLE_TIMEOUT - elapsed);
             setRemainingTime(remaining);
 
@@ -86,23 +124,20 @@ export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
             }
 
             // Auto logout when timeout reached
-            if (remaining <= 0) {
+            if (remaining <= 0 && !isLoggingOutRef.current) {
+                isLoggingOutRef.current = true;
                 onIdle?.();
                 handleLogout();
             }
-        }, CHECK_INTERVAL);
+        };
+
+        // Check idle status periodically
+        const intervalId = setInterval(checkTimeout, CHECK_INTERVAL);
 
         // Also update remaining time more frequently when warning is shown
         const warningIntervalId = setInterval(() => {
             if (warningShownRef.current) {
-                const elapsed = Date.now() - lastActivityRef.current;
-                const remaining = Math.max(0, IDLE_TIMEOUT - elapsed);
-                setRemainingTime(remaining);
-
-                if (remaining <= 0) {
-                    onIdle?.();
-                    handleLogout();
-                }
+                checkTimeout();
             }
         }, 1000);
 
@@ -110,6 +145,7 @@ export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
             events.forEach((event) => {
                 document.removeEventListener(event, throttledActivity);
             });
+            window.removeEventListener("storage", handleStorageChange);
             clearInterval(intervalId);
             clearInterval(warningIntervalId);
             if (throttleTimer) clearTimeout(throttleTimer);
