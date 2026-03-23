@@ -347,7 +347,7 @@ export function StudentRegistrationForm({ invitationId, universities = [], onSuc
                                     {universities.map((uni) => (
                                         <SelectItem key={uni.id} value={uni.id.toString()}>{uni.name}</SelectItem>
                                     ))}
-                                    <SelectItem value="other" className="text-blue-600 font-medium">Other / Not Listed</SelectItem>
+
                                 </SelectContent>
                             </Select>
                             {form.formState.errors.universityId && <p className="text-xs text-red-600 font-medium">{form.formState.errors.universityId.message}</p>}
