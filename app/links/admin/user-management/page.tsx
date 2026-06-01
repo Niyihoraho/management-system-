@@ -101,7 +101,7 @@ export default function UserManagementPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`/api/users?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}`);
+      const response = await axios.get('/api/users');
       setUsers(response.data.users || []);
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -109,7 +109,7 @@ export default function UserManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm]);
+  }, []);
 
   // Load users on component mount and when search/page changes
   useEffect(() => {
@@ -191,6 +191,12 @@ export default function UserManagementPage() {
     );
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
   // Reset to first page when search term changes
   useEffect(() => {
     setCurrentPage(1);
@@ -198,15 +204,7 @@ export default function UserManagementPage() {
 
   // Pagination handlers
   const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, page));
-  };
-
-  const _goToPreviousPage = () => {
-    goToPage(currentPage - 1);
-  };
-
-  const _goToNextPage = () => {
-    goToPage(currentPage + 1);
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
   const getScopeLabel = (scope: string) => {
@@ -369,7 +367,7 @@ export default function UserManagementPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
-                      {filteredUsers.map((user) => (
+                      {paginatedUsers.map((user) => (
                         <tr key={user.id}>
                           <td className="px-3 sm:px-6 py-3 sm:py-4">
                             <div className="flex items-center">
@@ -513,6 +511,34 @@ export default function UserManagementPage() {
                       </button>
                     </AddUserModal>
                   )}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {!loading && filteredUsers.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} users
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-muted-foreground px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

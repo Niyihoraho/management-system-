@@ -39,7 +39,7 @@ const escapeHtml = (value: string) =>
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-const getEmailTemplate = (title: string, content: string) => `
+export const getEmailTemplate = (title: string, content: string) => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -61,7 +61,7 @@ const getEmailTemplate = (title: string, content: string) => `
                     <!-- Content -->
                     <tr>
                         <td style="padding: 40px 30px;">
-                            <h2 style="margin-top: 0; margin-bottom: 24px; color: #111827; font-size: 20px; font-weight: 700;">${title}</h2>
+                             <h2 style="margin-top: 0; margin-bottom: 24px; color: #111827; font-size: 20px; font-weight: 700;">${title}</h2>
                             ${content}
                         </td>
                     </tr>
@@ -86,7 +86,7 @@ const getEmailTemplate = (title: string, content: string) => `
 </html>
 `;
 
-const signatureText = `
+export const signatureText = `
 ---
 Head Office
 KIGALI/RWANDA
@@ -99,6 +99,7 @@ Office e-mail: ugbroffice@gmail.com
 
 Website: www.gburwanda.com
 `;
+
 
 export async function sendEmail(payload: SendEmailPayload): Promise<void> {
     const user = process.env.GMAIL_USER;

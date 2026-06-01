@@ -53,6 +53,7 @@ interface AssignRoleModalProps {
   userId: string;
   userName: string;
   existingRole?: {
+    id?: number;
     regionId?: number;
     universityId?: number;
     smallGroupId?: number;
@@ -456,7 +457,6 @@ export function AssignRoleModal({ children, userId, userName, existingRole, onRo
                       <SelectValue placeholder="Select region" />
                     </SelectTrigger>
                     <SelectContent>
-                      {console.log('Rendering regions in dropdown:', regions)}
                       {regions.map((region) => (
                         <SelectItem key={region.id} value={region.id.toString()}>
                           {region.name}

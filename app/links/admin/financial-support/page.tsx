@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, DollarSign, AlertCircle, MoreVertical, X } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, DollarSign, AlertCircle, MoreVertical, X, Download } from 'lucide-react';
+import { format } from 'date-fns';
+import * as XLSX from "xlsx";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
     Breadcrumb,
@@ -320,6 +322,34 @@ export default function FinancialSupportPage() {
         }
     };
 
+    // Export to Excel
+    const handleExportExcel = () => {
+        try {
+            const exportData = filteredSupports.map(s => ({
+                "Full Name": s.graduate.fullName,
+                "Email": s.graduate.email || 'N/A',
+                "Phone": s.graduate.phone || 'N/A',
+                "Type": s.graduate.isDiaspora ? 'Diaspora' : 'Local',
+                "Province": s.graduate.residenceProvince || 'N/A',
+                "District": s.graduate.residenceDistrict || 'N/A',
+                "Support Status": statusLabels[s.supportStatus] || s.supportStatus,
+                "Frequency": s.supportFrequency ? frequencyLabels[s.supportFrequency] : 'N/A',
+                "Amount": s.supportAmount || 'N/A',
+                "Reminder": s.enableReminder ? 'Enabled' : 'Disabled',
+                "Last Updated": s.updatedAt ? format(new Date(s.updatedAt), "MMM d, yyyy") : 'N/A'
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            XLSX.utils.book_append_sheet(wb, ws, "Financial Support");
+            XLSX.writeFile(wb, `Financial_Support_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success("Excel export successful");
+        } catch (error) {
+            console.error("Export error:", error);
+            toast.error("Failed to export Excel");
+        }
+    };
+
     // Filter eligible graduates by search
     const filteredEligible = eligibleGraduates.filter(g => {
         if (!graduateSearch) return true;
@@ -456,6 +486,18 @@ export default function FinancialSupportPage() {
                                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                                         <span className="hidden sm:inline">{loading ? 'Loading...' : 'Refresh'}</span>
                                     </button>
+
+                                    {/* Export Button */}
+                                    <Button
+                                        onClick={handleExportExcel}
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={loading || filteredSupports.length === 0}
+                                        className="flex items-center gap-2 bg-background border-primary/20 hover:bg-primary/5 text-primary h-9 sm:h-10"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Export Excel</span>
+                                    </Button>
                                 </div>
 
                                 {/* Add New Supporter Button */}

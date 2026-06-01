@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 
 export interface UserScope {
-  scope: 'superadmin' | 'national' | 'region' | 'university' | 'smallGroup' | 'graduateSmallGroup'
+  scope: 'superadmin' | 'national' | 'region' | 'university' | 'smallgroup' | 'graduatesmallgroup'
   regionId: number | null
   universityId: number | null
   smallGroupId: number | null
@@ -58,10 +58,10 @@ export function useUserScope() {
       case 'university':
         return { region: false, university: false, smallGroup: true, graduateSmallGroup: true }
 
-      case 'smallGroup':
+      case 'smallgroup':
         return { region: false, university: false, smallGroup: false, graduateSmallGroup: false }
 
-      case 'graduateSmallGroup':
+      case 'graduatesmallgroup':
         return { region: false, university: false, smallGroup: false, graduateSmallGroup: false }
 
       default:

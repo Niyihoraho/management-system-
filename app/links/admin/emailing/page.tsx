@@ -140,6 +140,8 @@ export default function BulkEmailingPage() {
   const [financialSupport, setFinancialSupport] = useState<string>('');
   const [isDiaspora, setIsDiaspora] = useState<string>('');
   const [selectedPillars, setSelectedPillars] = useState<string[]>([]);
+  const [gradYearFrom, setGradYearFrom] = useState<string>('');
+  const [gradYearTo, setGradYearTo] = useState<string>('');
 
   // Custom Recipients List
   const [customRecipients, setCustomRecipients] = useState<CustomRecipient[]>([]);
@@ -279,6 +281,8 @@ export default function BulkEmailingPage() {
           status: gradStatus || undefined,
           financialSupport: financialSupport === 'yes' ? true : financialSupport === 'no' ? false : undefined,
           isDiaspora: isDiaspora === 'yes' ? true : isDiaspora === 'no' ? false : undefined,
+          graduationYearFrom: gradYearFrom ? Number(gradYearFrom) : undefined,
+          graduationYearTo: gradYearTo ? Number(gradYearTo) : undefined,
         }
       };
 
@@ -292,7 +296,7 @@ export default function BulkEmailingPage() {
   }, [
     targetGroup, customRecipients, excludeCampaignId,
     studentRegionId, studentUnivId, studentGroupId, selectedYears, studentSex, studentStatus, studentIntakeYear,
-    gradProvinceId, gradGroupId, selectedPillars, gradSex, gradStatus, financialSupport, isDiaspora
+    gradProvinceId, gradGroupId, selectedPillars, gradSex, gradStatus, financialSupport, isDiaspora, gradYearFrom, gradYearTo
   ]);
 
   // Update recipient count whenever filters change
@@ -329,6 +333,8 @@ export default function BulkEmailingPage() {
           status: gradStatus || undefined,
           financialSupport: financialSupport === 'yes' ? true : financialSupport === 'no' ? false : undefined,
           isDiaspora: isDiaspora === 'yes' ? true : isDiaspora === 'no' ? false : undefined,
+          graduationYearFrom: gradYearFrom ? Number(gradYearFrom) : undefined,
+          graduationYearTo: gradYearTo ? Number(gradYearTo) : undefined,
         }
       };
 
@@ -342,7 +348,7 @@ export default function BulkEmailingPage() {
   }, [
     targetGroup, excludeCampaignId,
     studentRegionId, studentUnivId, studentGroupId, selectedYears, studentSex, studentStatus, studentIntakeYear,
-    gradProvinceId, gradGroupId, selectedPillars, gradSex, gradStatus, financialSupport, isDiaspora
+    gradProvinceId, gradGroupId, selectedPillars, gradSex, gradStatus, financialSupport, isDiaspora, gradYearFrom, gradYearTo
   ]);
 
   // Trigger contacts fetch and reset exclusions when target group or filters change
@@ -354,7 +360,7 @@ export default function BulkEmailingPage() {
   }, [
     targetGroup, excludeCampaignId,
     studentRegionId, studentUnivId, studentGroupId, selectedYears, studentSex, studentStatus, studentIntakeYear,
-    gradProvinceId, gradGroupId, selectedPillars, gradSex, gradStatus, financialSupport, isDiaspora,
+    gradProvinceId, gradGroupId, selectedPillars, gradSex, gradStatus, financialSupport, isDiaspora, gradYearFrom, gradYearTo,
     showContactsList, fetchContacts
   ]);
 
@@ -585,6 +591,8 @@ export default function BulkEmailingPage() {
             status: gradStatus || undefined,
             financialSupport: financialSupport === 'yes' ? true : financialSupport === 'no' ? false : undefined,
             isDiaspora: isDiaspora === 'yes' ? true : isDiaspora === 'no' ? false : undefined,
+            graduationYearFrom: gradYearFrom ? Number(gradYearFrom) : undefined,
+            graduationYearTo: gradYearTo ? Number(gradYearTo) : undefined,
           },
           excludedEmails: excludedEmails.length > 0 ? excludedEmails : undefined
         },
@@ -1135,6 +1143,41 @@ export default function BulkEmailingPage() {
                             </select>
                           </div>
                         </div>
+
+                        {/* Graduation Year Range */}
+                        <div className="grid grid-cols-2 gap-3 mt-1">
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Graduation Year From</label>
+                            <select
+                              value={gradYearFrom}
+                              onChange={(e) => setGradYearFrom(e.target.value)}
+                              className="w-full text-xs bg-background border border-border/80 rounded-lg p-2 focus:ring-1 focus:ring-primary/20 text-foreground"
+                            >
+                              <option value="">From Year</option>
+                              {Array.from({ length: new Date().getFullYear() - 1990 + 1 }, (_, i) => 1990 + i).map(year => (
+                                <option key={year} value={year}>{year}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Graduation Year To</label>
+                            <select
+                              value={gradYearTo}
+                              onChange={(e) => setGradYearTo(e.target.value)}
+                              className="w-full text-xs bg-background border border-border/80 rounded-lg p-2 focus:ring-1 focus:ring-primary/20 text-foreground"
+                            >
+                              <option value="">To Year</option>
+                              {Array.from({ length: new Date().getFullYear() - 1990 + 1 }, (_, i) => 1990 + i).map(year => (
+                                <option key={year} value={year}>{year}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        {gradYearFrom && gradYearTo && Number(gradYearFrom) > Number(gradYearTo) && (
+                          <div className="text-xs text-red-500 mt-1">
+                            From Year cannot be greater than To Year
+                          </div>
+                        )}
 
                         {/* Serving Pillars Checklist */}
                         <div className="mt-1">

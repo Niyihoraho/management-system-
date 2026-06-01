@@ -79,3 +79,5 @@ lerna-debug.log*
 
 # PM2 files (if accidentally generated locally)
 .pm2
+
+/brief

@@ -120,11 +120,11 @@ export function AdminOnly({ children, fallback = null }: { children: React.React
 }
 
 export function NotSmallGroup({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return <DenyOnly scopes={['smallGroup', 'graduateSmallGroup']} fallback={fallback}>{children}</DenyOnly>;
+  return <DenyOnly scopes={['smallgroup', 'graduatesmallgroup']} fallback={fallback}>{children}</DenyOnly>;
 }
 
 export function NotGraduateSmallGroup({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return <DenyOnly scopes="graduateSmallGroup" fallback={fallback}>{children}</DenyOnly>;
+  return <DenyOnly scopes="graduatesmallgroup" fallback={fallback}>{children}</DenyOnly>;
 }
 
 // Additional convenience components for all your scopes
@@ -137,11 +137,11 @@ export function UniversityOnly({ children, fallback = null }: { children: React.
 }
 
 export function SmallGroupOnly({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return <AllowOnly scopes="smallGroup" fallback={fallback}>{children}</AllowOnly>;
+  return <AllowOnly scopes="smallgroup" fallback={fallback}>{children}</AllowOnly>;
 }
 
 export function GraduateSmallGroupOnly({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return <AllowOnly scopes="graduateSmallGroup" fallback={fallback}>{children}</AllowOnly>;
+  return <AllowOnly scopes="graduatesmallgroup" fallback={fallback}>{children}</AllowOnly>;
 }
 
 // Deny specific scopes
@@ -154,11 +154,11 @@ export function NotUniversity({ children, fallback = null }: { children: React.R
 }
 
 export function NotSmallGroupOnly({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return <DenyOnly scopes="smallGroup" fallback={fallback}>{children}</DenyOnly>;
+  return <DenyOnly scopes="smallgroup" fallback={fallback}>{children}</DenyOnly>;
 }
 
 export function NotGraduateSmallGroupOnly({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return <DenyOnly scopes="graduateSmallGroup" fallback={fallback}>{children}</DenyOnly>;
+  return <DenyOnly scopes="graduatesmallgroup" fallback={fallback}>{children}</DenyOnly>;
 }
 
 // Multi-scope combinations
@@ -171,7 +171,7 @@ export function AdminAndUniversity({ children, fallback = null }: { children: Re
 }
 
 export function NotGroupLevel({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return <DenyOnly scopes={['smallGroup', 'graduateSmallGroup']} fallback={fallback}>{children}</DenyOnly>;
+  return <DenyOnly scopes={['smallgroup', 'graduatesmallgroup']} fallback={fallback}>{children}</DenyOnly>;
 }
 
 // Hook for getting user scope - now uses shared context
