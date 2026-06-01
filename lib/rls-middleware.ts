@@ -43,7 +43,7 @@ export function createRLSQuery(userScope: UserScope, baseWhere: Record<string, u
  */
 export async function checkResourceAccess(
   userScope: UserScope,
-  resourceType: 'region' | 'university' | 'smallgroup' | 'alumnismallgroup',
+  resourceType: 'region' | 'university' | 'smallgroup' | 'graduatesmallgroup',
   resourceId: number
 ): Promise<boolean> {
   // Superadmin and national have access to everything
@@ -72,7 +72,7 @@ export function getTableRLSConditions(userScope: UserScope, tableName: string): 
     case 'document':
     case 'contributiondesignation':
       // These tables have regionId, universityId, smallGroupId, alumniGroupId
-      return rlsConditions;
+      return rlsConditions as unknown as Record<string, unknown>;
 
     case 'university':
       // Universities only have regionId
@@ -97,7 +97,7 @@ export function getTableRLSConditions(userScope: UserScope, tableName: string): 
       return {};
 
     default:
-      return rlsConditions;
+      return rlsConditions as unknown as Record<string, unknown>;
   }
 }
 

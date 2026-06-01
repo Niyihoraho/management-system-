@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
                 invitationlink: {
                     include: {
                         region: true,
-                        university: true,
+                        InvitationUniversities: true,
                     },
                 },
             },
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 
             if (userScope.scope === 'university' && userScope.universityId) {
                 const payloadUniversityId = parseNumericId(payload.universityId);
-                const fromInvitation = request.invitationlink?.university?.some((u) => u.id === userScope.universityId);
+                const fromInvitation = request.invitationlink?.InvitationUniversities?.some((iu: any) => iu.A === userScope.universityId);
                 return Boolean(fromInvitation) || payloadUniversityId === userScope.universityId;
             }
 
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
                 invitationlink: {
                     include: {
                         region: true,
-                        university: true,
+                        InvitationUniversities: true,
                     },
                 },
             },
@@ -150,8 +150,8 @@ export async function POST(request: NextRequest) {
             // University admin can only approve requests from their university
             const reg = registration as any;
             const payloadUniversityId = parseNumericId(reg.payload?.universityId);
-            hasAccess = reg.invitationlink?.university?.some(
-                (u: any) => u.id === userScope.universityId
+            hasAccess = reg.invitationlink?.InvitationUniversities?.some(
+                (iu: any) => iu.A === userScope.universityId
             ) || payloadUniversityId === userScope.universityId || false;
         }
 

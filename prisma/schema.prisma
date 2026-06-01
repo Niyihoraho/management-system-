@@ -742,3 +742,52 @@ enum UserStatus {
   inactive
   suspended
 }
+
+model EmailCampaign {
+  id          Int                  @id @default(autoincrement())
+  subject     String
+  body        String               @db.Text
+  status      CampaignStatus       @default(PENDING)
+  totalCount  Int                  @default(0)
+  sentCount   Int                  @default(0)
+  failedCount Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  recipients  EmailRecipientLog[]
+
+  @@map("email_campaign")
+}
+
+model EmailRecipientLog {
+  id             Int            @id @default(autoincrement())
+  campaignId     Int
+  recipientEmail String
+  recipientName  String
+  recipientType  String         // "student" or "graduate"
+  recipientId    Int?           // Optional reference key to student/graduate table
+  status         DeliveryStatus @default(PENDING)
+  errorMessage   String?        @db.Text
+  sentAt         DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  campaign       EmailCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([status])
+  @@map("email_recipient_log")
+}
+
+enum CampaignStatus {
+  PENDING
+  SENDING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+

@@ -93,6 +93,16 @@ export function buildQueryConditions(filters: any, userScope: any) {
     if (gf.isDiaspora !== undefined && gf.isDiaspora !== null) {
       graduateWhere.isDiaspora = gf.isDiaspora === 'true' || gf.isDiaspora === true;
     }
+    // Graduation Year Filter
+    if (gf.graduationYearFrom || gf.graduationYearTo) {
+      graduateWhere.graduationYear = {};
+      if (gf.graduationYearFrom) {
+        graduateWhere.graduationYear.gte = Number(gf.graduationYearFrom);
+      }
+      if (gf.graduationYearTo) {
+        graduateWhere.graduationYear.lte = Number(gf.graduationYearTo);
+      }
+    }
   }
 
   return { studentWhere, graduateWhere };

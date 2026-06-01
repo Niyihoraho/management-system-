@@ -90,10 +90,8 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
-        const pageParam = parseInt(searchParams.get("page") || "1");
-        const limitParam = parseInt(searchParams.get("limit") || "10");
-        const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-        const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10;
+        const pageRaw = searchParams.get("page");
+        const limitRaw = searchParams.get("limit");
         const search = searchParams.get("search") || "";
 
         // If ID is provided, return specific user
@@ -133,10 +131,13 @@ export async function GET(request: NextRequest) {
             ];
         }
 
-        // Calculate pagination
-        const skip = (page - 1) * limit;
+        // Calculate pagination only if page and limit query params are explicitly passed
+        const usePagination = pageRaw !== null && limitRaw !== null;
+        const page = usePagination ? (Number.isFinite(parseInt(pageRaw || "")) && parseInt(pageRaw || "") > 0 ? parseInt(pageRaw || "") : 1) : 1;
+        const limit = usePagination ? (Number.isFinite(parseInt(limitRaw || "")) && parseInt(limitRaw || "") > 0 ? parseInt(limitRaw || "") : 10) : 0;
+        const skip = usePagination ? (page - 1) * limit : undefined;
 
-        // Fetch users with pagination
+        // Fetch users
         let users: Array<Record<string, unknown>> = [];
         const totalCount = await prisma.user.count({ where });
 
@@ -153,16 +154,14 @@ export async function GET(request: NextRequest) {
                         }
                     }
                 },
-                skip,
-                take: limit,
+                ...(usePagination && { skip, take: limit }),
                 orderBy: { createdAt: 'desc' }
             }) as Array<Record<string, unknown>>;
         } catch (rolesError) {
             console.warn("Falling back to user list without roles:", rolesError);
             users = await prisma.user.findMany({
                 where,
-                skip,
-                take: limit,
+                ...(usePagination && { skip, take: limit }),
                 orderBy: { createdAt: 'desc' }
             }) as Array<Record<string, unknown>>;
         }
@@ -187,7 +186,7 @@ export async function GET(request: NextRequest) {
                 page,
                 limit,
                 total: totalCount,
-                pages: Math.ceil(totalCount / limit)
+                pages: limit > 0 ? Math.ceil(totalCount / limit) : 1
             }
         }, { status: 200 });
     } catch (error) {

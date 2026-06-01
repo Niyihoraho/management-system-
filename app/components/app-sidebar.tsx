@@ -301,6 +301,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             });
                         }
 
+                        // Bulk Emailing - superadmin only
+                        if (safeUserRole === "superadmin") {
+                            baseItems.push({
+                                title: "Bulk Emailing",
+                                url: "/links/admin/emailing",
+                                pro: false,
+                            });
+                        }
+
                         // Financial Support - for national and superadmin only
                         if (safeUserRole === "superadmin" || safeUserRole === "national") {
                             baseItems.push({

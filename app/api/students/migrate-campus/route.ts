@@ -139,8 +139,8 @@ export async function POST(request: NextRequest) {
                         province: student.placeOfBirthProvince,
                         district: student.placeOfBirthDistrict,
                         sector: student.placeOfBirthSector,
-                        cell: student.placeOfBirthCell,
-                        village: student.placeOfBirthVillage,
+                        cell: null,
+                        village: null,
                     },
                 },
             });
