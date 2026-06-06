@@ -89,7 +89,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "jwt",
     maxAge: 24 * 60 * 60, // 24 hours — absolute max JWT lifetime
-    updateAge: 5 * 60, // 5 minutes — refresh JWT every 5 minutes of activity
   },
   callbacks: {
     async redirect({ url, baseUrl }) {
