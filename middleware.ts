@@ -1,11 +1,16 @@
-import { getToken } from "next-auth/jwt"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-  const { nextUrl } = req
-  const isLoggedIn = !!token
+  // Check for session cookies directly to avoid Edge runtime secure prefix mismatches
+  const hasSessionCookie = 
+    req.cookies.has("authjs.session-token") || 
+    req.cookies.has("__Secure-authjs.session-token") ||
+    req.cookies.has("next-auth.session-token") ||
+    req.cookies.has("__Secure-next-auth.session-token");
+
+  const isLoggedIn = hasSessionCookie;
+  const { nextUrl } = req;
 
   if (nextUrl.pathname === "/" || nextUrl.pathname.startsWith("/api/auth")) {
     return NextResponse.next()
