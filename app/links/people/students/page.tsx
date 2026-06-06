@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Search, RefreshCw, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle } from 'lucide-react';
+import { Search, RefreshCw, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Filter, SlidersHorizontal, X, ChevronDown, ChevronUp, Users, BookOpen, MapPin, Activity, School, Download } from 'lucide-react';
+import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 import { AppSidebar } from "@/components/app-sidebar";
 import { StudentForm } from "@/components/StudentForm";
 import { MigrateStudentModal } from "@/components/MigrateStudentModal";
@@ -119,6 +121,13 @@ export default function StudentsPage() {
   const router = useRouter();
   const { userRole, isLoading: roleLoading } = useRoleAccess();
   const [searchTerm, setSearchTerm] = useState('');
+  const [universityFilter, setUniversityFilter] = useState<string>('all');
+  const [courseFilter, setCourseFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sexFilter, setSexFilter] = useState<string>('all');
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [students, setStudents] = useState<Student[]>([]);
@@ -386,8 +395,57 @@ export default function StudentsPage() {
     setEditingStudent(student);
   };
 
+  // Derive unique filter options from data
+  const uniqueCourses = [...new Set(students.map(s => s.course).filter(Boolean))] as string[];
+  const uniqueYears = [...new Set(students.map(s => s.yearOfStudy).filter(Boolean))].sort((a, b) => (a as number) - (b as number)) as number[];
+  const uniqueGroups = [...new Set(students.filter(s => s.smallgroup?.name).map(s => s.smallgroup!.name))] as string[];
+
+  // Count active filters
+  const activeFilterCount = [
+    universityFilter !== 'all',
+    courseFilter !== 'all',
+    yearFilter !== 'all',
+    groupFilter !== 'all',
+    statusFilter !== 'all',
+    sexFilter !== 'all',
+  ].filter(Boolean).length;
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setUniversityFilter('all');
+    setCourseFilter('all');
+    setYearFilter('all');
+    setGroupFilter('all');
+    setStatusFilter('all');
+    setSexFilter('all');
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
+
   // Filter students
   const filteredStudents = students.filter(student => {
+    // University Filter
+    if (universityFilter !== 'all' && student.universityId.toString() !== universityFilter) return false;
+
+    // Course Filter
+    if (courseFilter !== 'all' && student.course !== courseFilter) return false;
+
+    // Year Filter
+    if (yearFilter !== 'all' && student.yearOfStudy?.toString() !== yearFilter) return false;
+
+    // Group Filter
+    if (groupFilter === 'assigned' && !student.smallGroupId) return false;
+    if (groupFilter === 'unassigned' && student.smallGroupId) return false;
+    if (groupFilter !== 'all' && groupFilter !== 'assigned' && groupFilter !== 'unassigned') {
+      if (student.smallgroup?.name !== groupFilter) return false;
+    }
+
+    // Status Filter
+    if (statusFilter !== 'all' && student.status !== statusFilter) return false;
+
+    // Sex Filter
+    if (sexFilter !== 'all' && student.sex !== sexFilter) return false;
+
     if (!searchTerm) return true;
 
     const searchLower = searchTerm.toLowerCase();
@@ -402,6 +460,18 @@ export default function StudentsPage() {
     );
   });
 
+  // Compute stats from filtered results for the summary bar
+  const filterStats = {
+    total: filteredStudents.length,
+    active: filteredStudents.filter(s => s.status === 'active').length,
+    inactive: filteredStudents.filter(s => s.status === 'inactive').length,
+    migrating: filteredStudents.filter(s => s.status === 'migrating').length,
+    assigned: filteredStudents.filter(s => s.smallGroupId).length,
+    unassigned: filteredStudents.filter(s => !s.smallGroupId).length,
+    male: filteredStudents.filter(s => s.sex === 'Male').length,
+    female: filteredStudents.filter(s => s.sex === 'Female').length,
+  };
+
   // Pagination
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -411,6 +481,43 @@ export default function StudentsPage() {
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
+  };
+
+  const handleFilterChange = (setter: (v: string) => void) => (value: string) => {
+    setter(value);
+    setCurrentPage(1);
+  };
+
+  // Export to Excel
+  const handleExportExcel = () => {
+    try {
+      const exportData = filteredStudents.map(s => ({
+        "Full Name": s.fullName,
+        "Sex": s.sex || 'N/A',
+        "Phone": s.phone || 'N/A',
+        "Email": s.email || 'N/A',
+        "University": s.university?.name || 'N/A',
+        "Course": s.course || 'N/A',
+        "Year of Study": s.yearOfStudy ? `Year ${s.yearOfStudy}` : 'N/A',
+        "Small Group": s.smallgroup?.name || 'Unassigned',
+        "Province": s.placeOfBirthProvince || 'N/A',
+        "District": s.placeOfBirthDistrict || 'N/A',
+        "Sector": s.placeOfBirthSector || 'N/A',
+        "Cell": s.placeOfBirthCell || 'N/A',
+        "Village": s.placeOfBirthVillage || 'N/A',
+        "Status": studentStatusLabels[s.status] || s.status,
+        "Created At": s.createdAt ? format(new Date(s.createdAt), "MMM d, yyyy") : 'N/A'
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      XLSX.utils.book_append_sheet(wb, ws, "Students");
+      XLSX.writeFile(wb, `Students_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success("Excel export successful");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export Excel");
+    }
   };
 
   const goToPage = (page: number) => {
@@ -481,9 +588,220 @@ export default function StudentsPage() {
                   <RefreshCw className={`w-4 h-4 ${(loading || isRefetching) ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline">{(loading || isRefetching) ? 'Loading...' : 'Refresh'}</span>
                 </button>
-              </div>
 
+                {/* Export Button */}
+                <Button
+                  onClick={handleExportExcel}
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || filteredStudents.length === 0}
+                  className="flex items-center gap-2 bg-background border-primary/20 hover:bg-primary/5 text-primary h-9 sm:h-10"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Export Excel</span>
+                </Button>
+
+                {/* Filter Toggle Button */}
+                <Button
+                  onClick={() => setShowFilterPanel(!showFilterPanel)}
+                  variant={activeFilterCount > 0 ? "default" : "outline"}
+                  size="sm"
+                  className={`flex items-center gap-2 h-9 sm:h-10 relative ${
+                    activeFilterCount > 0
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                      : 'bg-background border-border/40 hover:bg-muted/50'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span className="hidden sm:inline">Filters</span>
+                  {activeFilterCount > 0 && (
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-white/20 text-[11px] font-bold">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                  {showFilterPanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </Button>
+              </div>
             </div>
+
+            {/* Advanced Filter Panel */}
+            {showFilterPanel && (
+              <div className="mb-4 sm:mb-6 bg-card border border-border rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-200">
+                {/* Filter Header */}
+                <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">Advanced Filters</span>
+                    {activeFilterCount > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {activeFilterCount} active
+                      </Badge>
+                    )}
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="text-xs text-muted-foreground hover:text-foreground h-7 px-2 gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+
+                {/* Filter Grid */}
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                  {/* Education - University */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <School className="w-3 h-3" /> University
+                    </label>
+                    <Select value={universityFilter} onValueChange={handleFilterChange(setUniversityFilter)}>
+                      <SelectTrigger className="w-full h-9 text-xs">
+                        <SelectValue placeholder="All Universities" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Universities</SelectItem>
+                        {universities.map((uni) => (
+                          <SelectItem key={uni.id} value={uni.id.toString()}>{uni.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Education - Course */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <BookOpen className="w-3 h-3" /> Course
+                    </label>
+                    <Select value={courseFilter} onValueChange={handleFilterChange(setCourseFilter)}>
+                      <SelectTrigger className="w-full h-9 text-xs">
+                        <SelectValue placeholder="All Courses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Courses</SelectItem>
+                        {uniqueCourses.sort().map((course) => (
+                          <SelectItem key={course} value={course}>{course}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Education - Year */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <GraduationCap className="w-3 h-3" /> Year of Study
+                    </label>
+                    <Select value={yearFilter} onValueChange={handleFilterChange(setYearFilter)}>
+                      <SelectTrigger className="w-full h-9 text-xs">
+                        <SelectValue placeholder="All Years" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Years</SelectItem>
+                        {uniqueYears.map((year) => (
+                          <SelectItem key={year} value={year.toString()}>Year {year}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Small Group */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Users className="w-3 h-3" /> Small Group
+                    </label>
+                    <Select value={groupFilter} onValueChange={handleFilterChange(setGroupFilter)}>
+                      <SelectTrigger className="w-full h-9 text-xs">
+                        <SelectValue placeholder="All Groups" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Groups</SelectItem>
+                        <SelectItem value="assigned">✓ Assigned</SelectItem>
+                        <SelectItem value="unassigned">✗ Unassigned</SelectItem>
+                        {uniqueGroups.sort().map((group) => (
+                          <SelectItem key={group} value={group}>{group}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Activity className="w-3 h-3" /> Status
+                    </label>
+                    <Select value={statusFilter} onValueChange={handleFilterChange(setStatusFilter)}>
+                      <SelectTrigger className="w-full h-9 text-xs">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        {Object.entries(studentStatusLabels).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Sex */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Users className="w-3 h-3" /> Sex
+                    </label>
+                    <Select value={sexFilter} onValueChange={handleFilterChange(setSexFilter)}>
+                      <SelectTrigger className="w-full h-9 text-xs">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Filter Stats Summary */}
+                <div className="px-4 py-3 bg-muted/20 border-t border-border">
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 text-primary rounded-md text-xs font-medium">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{filterStats.total} Total</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-500/10 text-green-700 dark:text-green-400 rounded-md text-xs font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{filterStats.active} Active</span>
+                    </div>
+                    {filterStats.migrating > 0 && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-md text-xs font-medium">
+                        <Activity className="w-3.5 h-3.5" />
+                        <span>{filterStats.migrating} Migrating</span>
+                      </div>
+                    )}
+                    <div className="w-px h-6 bg-border self-center" />
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-md text-xs font-medium">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{filterStats.assigned} Assigned Group</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-500/10 text-gray-700 dark:text-gray-400 rounded-md text-xs font-medium">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{filterStats.unassigned} Unassigned</span>
+                    </div>
+                    <div className="w-px h-6 bg-border self-center" />
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 rounded-md text-xs font-medium">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{filterStats.male} Male</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-pink-500/10 text-pink-700 dark:text-pink-400 rounded-md text-xs font-medium">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{filterStats.female} Female</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Error State */}
             {error && (

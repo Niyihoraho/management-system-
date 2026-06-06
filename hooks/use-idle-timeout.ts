@@ -3,8 +3,8 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { signOut } from "next-auth/react";
 
-const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in ms
-const WARNING_BEFORE = 1 * 60 * 1000; // Show warning 1 minute before logout
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes in ms
+const WARNING_BEFORE = 2 * 60 * 1000; // Show warning 2 minutes before logout
 const CHECK_INTERVAL = 5 * 1000; // Check every 5 seconds to be precise
 
 interface UseIdleTimeoutOptions {
@@ -32,11 +32,16 @@ export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
     }, []);
 
     const handleActivity = useCallback(() => {
-        // Only reset if warning is not showing (user must explicitly dismiss warning)
-        if (!warningShownRef.current) {
-            const now = Date.now();
-            msystem_lastActivityRef.current = now;
-            localStorage.setItem("msystem_lastActivity", now.toString());
+        // Any real user activity resets the timer, even if warning is showing
+        const now = Date.now();
+        msystem_lastActivityRef.current = now;
+        localStorage.setItem("msystem_lastActivity", now.toString());
+        // If warning is showing, dismiss it since the user is active
+        if (warningShownRef.current) {
+            warningShownRef.current = false;
+            isLoggingOutRef.current = false;
+            setShowWarning(false);
+            setRemainingTime(IDLE_TIMEOUT);
         }
     }, []);
 

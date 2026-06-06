@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban, Sparkles, Download } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Trash2, GraduationCap, AlertCircle, UserPlus, MoreVertical, CheckCircle2, XCircle, Ban, Sparkles, Download, Filter, SlidersHorizontal, X, ChevronDown, ChevronUp, Users, BookOpen, MapPin, Shield, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import * as XLSX from "xlsx";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -137,6 +137,12 @@ export default function GraduatesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProvince, setSelectedProvince] = useState<string>("all");
     const [diasporaFilter, setDiasporaFilter] = useState<string>("all");
+    const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [pillarFilter, setPillarFilter] = useState<string>("all");
+    const [cellFilter, setCellFilter] = useState<string>("all");
+    const [courseFilter, setCourseFilter] = useState<string>("all");
+    const [graduationYearFilter, setGraduationYearFilter] = useState<string>("all");
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
     const [graduates, setGraduates] = useState<Graduate[]>([]);
@@ -402,22 +408,70 @@ export default function GraduatesPage() {
 
 
 
+    // Derive unique filter options from data
+    const uniqueCourses = [...new Set(graduates.map(g => g.course).filter(Boolean))] as string[];
+    const uniqueYears = [...new Set(graduates.map(g => g.graduationYear).filter(Boolean))].sort((a, b) => (b as number) - (a as number)) as number[];
+    const uniqueCells = [...new Set(graduates.filter(g => g.graduateGroup?.name).map(g => g.graduateGroup!.name))] as string[];
+
+    // Count active filters
+    const activeFilterCount = [
+        selectedProvince !== 'all',
+        diasporaFilter !== 'all',
+        statusFilter !== 'all',
+        pillarFilter !== 'all',
+        cellFilter !== 'all',
+        courseFilter !== 'all',
+        graduationYearFilter !== 'all',
+    ].filter(Boolean).length;
+
+    // Clear all filters
+    const clearAllFilters = () => {
+        setSelectedProvince('all');
+        setDiasporaFilter('all');
+        setStatusFilter('all');
+        setPillarFilter('all');
+        setCellFilter('all');
+        setCourseFilter('all');
+        setGraduationYearFilter('all');
+        setSearchTerm('');
+        setCurrentPage(1);
+    };
+
     // Filter graduates
     const filteredGraduates = graduates.filter(graduate => {
         // Province Filter
-        if (selectedProvince !== "all" && graduate.provinceId !== selectedProvince) {
-            return false;
-        }
+        if (selectedProvince !== "all" && graduate.provinceId !== selectedProvince) return false;
 
         // Diaspora Filter
         if (diasporaFilter === 'diaspora' && !graduate.isDiaspora) return false;
         if (diasporaFilter === 'local' && graduate.isDiaspora) return false;
 
+        // Status Filter
+        if (statusFilter !== 'all' && graduate.status !== statusFilter) return false;
+
+        // Pillar Filter
+        if (pillarFilter !== 'all') {
+            if (!graduate.servingPillars?.includes(pillarFilter)) return false;
+        }
+
+        // Cell Filter
+        if (cellFilter === 'assigned' && !graduate.graduateGroupId) return false;
+        if (cellFilter === 'unassigned' && graduate.graduateGroupId) return false;
+        if (cellFilter !== 'all' && cellFilter !== 'assigned' && cellFilter !== 'unassigned') {
+            if (graduate.graduateGroup?.name !== cellFilter) return false;
+        }
+
+        // Course Filter
+        if (courseFilter !== 'all' && graduate.course !== courseFilter) return false;
+
+        // Graduation Year Filter
+        if (graduationYearFilter !== 'all' && graduate.graduationYear?.toString() !== graduationYearFilter) return false;
+
         if (!searchTerm) return true;
 
         const searchLower = searchTerm.toLowerCase();
 
-        const matchesPillars = graduate.servingPillars?.some(pillar => 
+        const matchesPillars = graduate.servingPillars?.some(pillar =>
             (pillarLabels[pillar] || pillar).toLowerCase().includes(searchLower)
         );
 
@@ -431,6 +485,17 @@ export default function GraduatesPage() {
         );
     });
 
+    // Compute stats from filtered results for the summary bar
+    const filterStats = {
+        total: filteredGraduates.length,
+        active: filteredGraduates.filter(g => g.status === 'active').length,
+        inactive: filteredGraduates.filter(g => g.status === 'inactive').length,
+        assigned: filteredGraduates.filter(g => g.graduateGroupId).length,
+        unassigned: filteredGraduates.filter(g => !g.graduateGroupId).length,
+        withPillars: filteredGraduates.filter(g => g.servingPillars?.length > 0).length,
+        diaspora: filteredGraduates.filter(g => g.isDiaspora).length,
+    };
+
     // Pagination
     const totalPages = Math.ceil(filteredGraduates.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -442,13 +507,8 @@ export default function GraduatesPage() {
         setCurrentPage(1);
     };
 
-    const handleProvinceChange = (value: string) => {
-        setSelectedProvince(value);
-        setCurrentPage(1);
-    };
-
-    const handleDiasporaChange = (value: string) => {
-        setDiasporaFilter(value);
+    const handleFilterChange = (setter: (v: string) => void) => (value: string) => {
+        setter(value);
         setCurrentPage(1);
     };
 
@@ -532,39 +592,172 @@ export default function GraduatesPage() {
                                     <Download className="w-4 h-4" />
                                     <span className="hidden sm:inline">Export Excel</span>
                                 </Button>
+
+                                {/* Filter Toggle Button */}
+                                <Button
+                                    onClick={() => setShowFilterPanel(!showFilterPanel)}
+                                    variant={activeFilterCount > 0 ? "default" : "outline"}
+                                    size="sm"
+                                    className={`flex items-center gap-2 h-9 sm:h-10 relative ${
+                                        activeFilterCount > 0
+                                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                                            : 'bg-background border-border/40 hover:bg-muted/50'
+                                    }`}
+                                >
+                                    <SlidersHorizontal className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Filters</span>
+                                    {activeFilterCount > 0 && (
+                                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-white/20 text-[11px] font-bold">
+                                            {activeFilterCount}
+                                        </span>
+                                    )}
+                                    {showFilterPanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                </Button>
                             </div>
 
                             {!isGraduateScope && (
-                                <>
-                                    {/* Province Filter */}
-                                    <div className="w-full sm:w-48">
-                                        <Select
-                                            value={selectedProvince}
-                                            onValueChange={handleProvinceChange}
+                                <Button
+                                    onClick={() => setIsFormOpen(true)}
+                                    className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 shadow-sm text-sm sm:text-base"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Add New Graduate</span>
+                                    <span className="sm:hidden">Add Graduate</span>
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Advanced Filter Panel */}
+                        {showFilterPanel && (
+                            <div className="mb-4 sm:mb-6 bg-card border border-border rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-200">
+                                {/* Filter Header */}
+                                <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+                                    <div className="flex items-center gap-2">
+                                        <Filter className="w-4 h-4 text-primary" />
+                                        <span className="text-sm font-semibold text-foreground">Advanced Filters</span>
+                                        {activeFilterCount > 0 && (
+                                            <Badge variant="secondary" className="text-xs">
+                                                {activeFilterCount} active
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    {activeFilterCount > 0 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={clearAllFilters}
+                                            className="text-xs text-muted-foreground hover:text-foreground h-7 px-2 gap-1"
                                         >
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="All Provinces" />
+                                            <X className="w-3 h-3" />
+                                            Clear All
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* Filter Grid */}
+                                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                                    {/* Education - Course */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                            <BookOpen className="w-3 h-3" /> Course
+                                        </label>
+                                        <Select value={courseFilter} onValueChange={handleFilterChange(setCourseFilter)}>
+                                            <SelectTrigger className="w-full h-9 text-xs">
+                                                <SelectValue placeholder="All Courses" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="all">All Provinces</SelectItem>
-                                                {provinces.map((province) => (
-                                                    <SelectItem key={province.id} value={province.id}>
-                                                        {province.name}
-                                                    </SelectItem>
+                                                <SelectItem value="all">All Courses</SelectItem>
+                                                {uniqueCourses.sort().map((course) => (
+                                                    <SelectItem key={course} value={course}>{course}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
 
+                                    {/* Education - Graduation Year */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                            <GraduationCap className="w-3 h-3" /> Graduation Year
+                                        </label>
+                                        <Select value={graduationYearFilter} onValueChange={handleFilterChange(setGraduationYearFilter)}>
+                                            <SelectTrigger className="w-full h-9 text-xs">
+                                                <SelectValue placeholder="All Years" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Years</SelectItem>
+                                                {uniqueYears.map((year) => (
+                                                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
 
-                                    {/* Diaspora Filter */}
-                                    <div className="w-full sm:w-40">
-                                        <Select
-                                            value={diasporaFilter}
-                                            onValueChange={handleDiasporaChange}
-                                        >
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="All Graduates" />
+                                    {/* Serving Pillars */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                            <Shield className="w-3 h-3" /> Serving Pillar
+                                        </label>
+                                        <Select value={pillarFilter} onValueChange={handleFilterChange(setPillarFilter)}>
+                                            <SelectTrigger className="w-full h-9 text-xs">
+                                                <SelectValue placeholder="All Pillars" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Pillars</SelectItem>
+                                                {Object.entries(pillarLabels).map(([key, label]) => (
+                                                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Graduate Cell */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                            <Users className="w-3 h-3" /> Graduate Cell
+                                        </label>
+                                        <Select value={cellFilter} onValueChange={handleFilterChange(setCellFilter)}>
+                                            <SelectTrigger className="w-full h-9 text-xs">
+                                                <SelectValue placeholder="All Cells" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Cells</SelectItem>
+                                                <SelectItem value="assigned">✓ Assigned</SelectItem>
+                                                <SelectItem value="unassigned">✗ Unassigned</SelectItem>
+                                                {uniqueCells.sort().map((cell) => (
+                                                    <SelectItem key={cell} value={cell}>{cell}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Location - Province */}
+                                    {!isGraduateScope && (
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                                <MapPin className="w-3 h-3" /> Province
+                                            </label>
+                                            <Select value={selectedProvince} onValueChange={handleFilterChange(setSelectedProvince)}>
+                                                <SelectTrigger className="w-full h-9 text-xs">
+                                                    <SelectValue placeholder="All Provinces" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All Provinces</SelectItem>
+                                                    {provinces.map((province) => (
+                                                        <SelectItem key={province.id} value={province.id}>{province.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {/* Location - Diaspora */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" /> Residence
+                                        </label>
+                                        <Select value={diasporaFilter} onValueChange={handleFilterChange(setDiasporaFilter)}>
+                                            <SelectTrigger className="w-full h-9 text-xs">
+                                                <SelectValue placeholder="All" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">All Graduates</SelectItem>
@@ -573,18 +766,64 @@ export default function GraduatesPage() {
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    {/* Add New Graduate Button */}
-                                    <Button
-                                        onClick={() => setIsFormOpen(true)}
-                                        className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 shadow-sm text-sm sm:text-base"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        <span className="hidden sm:inline">Add New Graduate</span>
-                                        <span className="sm:hidden">Add Graduate</span>
-                                    </Button>
-                                </>
-                            )}
-                        </div>
+
+                                    {/* Status */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                            <Activity className="w-3 h-3" /> Status
+                                        </label>
+                                        <Select value={statusFilter} onValueChange={handleFilterChange(setStatusFilter)}>
+                                            <SelectTrigger className="w-full h-9 text-xs">
+                                                <SelectValue placeholder="All Status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Status</SelectItem>
+                                                <SelectItem value="active">Active</SelectItem>
+                                                <SelectItem value="inactive">Inactive</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Filter Stats Summary */}
+                                <div className="px-4 py-3 bg-muted/20 border-t border-border">
+                                    <div className="flex flex-wrap gap-2">
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 text-primary rounded-md text-xs font-medium">
+                                            <Users className="w-3.5 h-3.5" />
+                                            <span>{filterStats.total} Total</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-500/10 text-green-700 dark:text-green-400 rounded-md text-xs font-medium">
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                            <span>{filterStats.active} Active</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-500/10 text-gray-600 dark:text-gray-400 rounded-md text-xs font-medium">
+                                            <XCircle className="w-3.5 h-3.5" />
+                                            <span>{filterStats.inactive} Inactive</span>
+                                        </div>
+                                        <div className="w-px h-6 bg-border self-center" />
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-md text-xs font-medium">
+                                            <Users className="w-3.5 h-3.5" />
+                                            <span>{filterStats.assigned} Assigned Cell</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-md text-xs font-medium">
+                                            <AlertCircle className="w-3.5 h-3.5" />
+                                            <span>{filterStats.unassigned} Unassigned</span>
+                                        </div>
+                                        <div className="w-px h-6 bg-border self-center" />
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-500/10 text-purple-700 dark:text-purple-400 rounded-md text-xs font-medium">
+                                            <Shield className="w-3.5 h-3.5" />
+                                            <span>{filterStats.withPillars} Serving</span>
+                                        </div>
+                                        {filterStats.diaspora > 0 && (
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 rounded-md text-xs font-medium">
+                                                <MapPin className="w-3.5 h-3.5" />
+                                                <span>{filterStats.diaspora} Diaspora</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Error State */}
                         {error && (

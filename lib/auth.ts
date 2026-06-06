@@ -1,13 +1,12 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { RoleScope } from "@/lib/generated/prisma"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  adapter: PrismaAdapter(prisma as any),
+  // No adapter — JWT strategy with Credentials doesn't need a DB adapter.
+  // PrismaAdapter was creating zombie DB sessions conflicting with JWT tokens.
   providers: [
     Credentials({
       name: "credentials",
@@ -89,8 +88,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: {
     strategy: "jwt",
-    maxAge: 40 * 60, // 40 minutes - session expires after inactivity
-    updateAge: 5 * 60, // 5 minutes - session token is refreshed every 5 minutes
+    maxAge: 24 * 60 * 60, // 24 hours — absolute max JWT lifetime
+    updateAge: 5 * 60, // 5 minutes — refresh JWT every 5 minutes of activity
   },
   callbacks: {
     async redirect({ url, baseUrl }) {
