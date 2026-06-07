@@ -74,7 +74,7 @@ export const getEmailTemplate = (title: string, content: string) => `
                             <p style="margin: 4px 0;"><strong>P.O Box:</strong> 1116 Kigali</p>
                             <div style="height: 12px;"></div>
                             <p style="margin: 4px 0;"><strong>Tel:</strong> +250 786 030 841</p>
-                            <p style="margin: 4px 0;"><strong>Email:</strong> <a href="mailto:ugbroffice@gmail.com" style="color: #2563eb; text-decoration: none;">ugbroffice@gmail.com</a></p>
+                            <p style="margin: 4px 0;"><strong>Email:</strong> <span style="color: #64748b;">To be updated</span></p>
                             <p style="margin: 4px 0;"><strong>Website:</strong> <a href="http://www.gburwanda.com" style="color: #2563eb; text-decoration: none;">www.gburwanda.com</a></p>
                         </td>
                     </tr>
@@ -95,7 +95,7 @@ Cell: KAMUTWA
 P.O Box: 1116 Kigali
 
 T + (250) 786030841
-Office e-mail: ugbroffice@gmail.com
+Office e-mail: (To be updated)
 
 Website: www.gburwanda.com
 `;

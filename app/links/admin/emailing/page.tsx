@@ -207,7 +207,7 @@ export default function BulkEmailingPage() {
     <p style="margin: 4px 0;"><strong>P.O Box:</strong> 1116 Kigali</p>
     <div style="height: 12px;"></div>
     <p style="margin: 4px 0;"><strong>Tel:</strong> +250 786 030 841</p>
-    <p style="margin: 4px 0;"><strong>Email:</strong> <a href="mailto:ugbroffice@gmail.com" style="color: #2563eb; text-decoration: none;">ugbroffice@gmail.com</a></p>
+    <p style="margin: 4px 0;"><strong>Email:</strong> <span style="color: #64748b;">To be updated</span></p>
     <p style="margin: 4px 0;"><strong>Website:</strong> <a href="http://www.gburwanda.com" style="color: #2563eb; text-decoration: none;">www.gburwanda.com</a></p>
   `;
 
@@ -1606,7 +1606,7 @@ export default function BulkEmailingPage() {
 
                   {/* Mock Email Frame */}
                   <div className="p-3 bg-muted/10 border-b border-border/40 text-xs flex flex-col gap-1 text-muted-foreground">
-                    <div><span className="font-semibold text-foreground">From:</span> GBUR Head Office &lt;ugbroffice@gmail.com&gt;</div>
+                    <div><span className="font-semibold text-foreground">From:</span> GBUR Head Office</div>
                     <div><span className="font-semibold text-foreground">To:</span> <span className="bg-muted/80 px-1.5 py-0.5 rounded text-[10px] font-mono text-foreground font-bold">Matching contacts set</span></div>
                     <div className="truncate"><span className="font-semibold text-foreground">Subject:</span> <span className="text-foreground font-bold">{subject || '(Specify subject to preview)'}</span></div>
                   </div>
