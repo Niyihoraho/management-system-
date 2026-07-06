@@ -72,6 +72,7 @@ jobs:
             --if-exists \
             --no-acl \
             --no-owner \
+            --set=sslmode=require \
             "${{ env.BACKUP_FILE }}"
 
           echo "✅ Neon restore complete"
