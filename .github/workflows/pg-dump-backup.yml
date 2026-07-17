@@ -61,6 +61,7 @@ jobs:
       - name: Restore dump into Neon
         env:
           PGPASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
+          PGSSLMODE: require
         run: |
           pg_restore \
             --host="${{ secrets.NEON_DB_HOST }}" \
@@ -72,7 +73,6 @@ jobs:
             --if-exists \
             --no-acl \
             --no-owner \
-            --set=sslmode=require \
             "${{ env.BACKUP_FILE }}"
 
           echo "✅ Neon restore complete"
@@ -91,12 +91,12 @@ jobs:
 
           echo "=== Neon public tables ==="
           PGPASSWORD="${{ secrets.NEON_DB_PASSWORD }}" \
+          PGSSLMODE=require \
           psql \
             --host="${{ secrets.NEON_DB_HOST }}" \
             --port=5432 \
             --username="${{ secrets.NEON_DB_USER }}" \
             --dbname="${{ secrets.NEON_DB_NAME }}" \
-            --set=sslmode=require \
             -c "SELECT count(*) AS table_count FROM information_schema.tables WHERE table_schema = 'public';"
 
 
