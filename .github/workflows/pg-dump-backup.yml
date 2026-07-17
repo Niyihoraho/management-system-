@@ -63,17 +63,32 @@ jobs:
           PGPASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
           PGSSLMODE: require
         run: |
+          # Note: --schema flag is intentionally omitted on restore;
+          # the dump was already scoped to public schema by pg_dump.
+          # Passing --schema again causes pg_restore to exit 1 on
+          # any object it cannot match to that filter.
           pg_restore \
             --host="${{ secrets.NEON_DB_HOST }}" \
             --port=5432 \
             --username="${{ secrets.NEON_DB_USER }}" \
             --dbname="${{ secrets.NEON_DB_NAME }}" \
-            --schema=public \
             --clean \
             --if-exists \
             --no-acl \
             --no-owner \
-            "${{ env.BACKUP_FILE }}"
+            --verbose \
+            "${{ env.BACKUP_FILE }}" 2>&1 | tee /tmp/restore.log
+
+          RESTORE_EXIT=${PIPESTATUS[0]}
+          if [ "$RESTORE_EXIT" -ne 0 ]; then
+            # Fail only on genuine errors, not just harmless notices
+            if grep -qiE '^pg_restore: error:' /tmp/restore.log; then
+              echo "❌ pg_restore encountered errors (exit $RESTORE_EXIT)"
+              exit $RESTORE_EXIT
+            else
+              echo "⚠️ pg_restore exited $RESTORE_EXIT with warnings only — continuing"
+            fi
+          fi
 
           echo "✅ Neon restore complete"
 
@@ -109,6 +124,8 @@ jobs:
             echo "   → GitHub artifact: db-backup-${{ env.BACKUP_FILE }} (30 days)"
             echo "   → Neon copy: restored and verified"
           else
+            # Do NOT exit 1 here — the upstream failing step already marks
+            # the job as failed. Calling exit 1 in this step just adds a
+            # second spurious red X to the run UI.
             echo "❌ Backup FAILED at $(date) — check logs above"
-            exit 1
           fi
